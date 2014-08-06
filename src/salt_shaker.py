@@ -10,9 +10,10 @@ import errno
 from git import Repo
 from git.exc import GitCommandError
 from textwrap import dedent
-from fabric.api import local, task, env
+# from fabric.api import local, task, env
 
 import resolve_deps
+import yaml
 
 SSH_WRAPPER_SCRIPT = """#!/bin/bash
 ssh -o VisualHostKey=no "$@"
@@ -493,7 +494,7 @@ class Shaker(object):
             have_updated = True
 
 
-def get_deps(root_dir):
+def get_deps(root_dir, root_formula=None):
     if os.path.exists(os.path.join(root_dir, 'formula-requirements.txt')):
         return
     deps = {}
@@ -502,7 +503,10 @@ def get_deps(root_dir):
         print 'Env variable GITHUB_TOKEN has not been set.'
         sys.exit(1)
     md_file = os.path.join(root_dir, 'metadata.yml')
-    if 'ROOT_FORMULA' in os.environ:
+    if root_formula:
+        org, formula = root_formula.split('/')
+        deps = resolve_deps.get_reqs_recursive(org, formula)
+    elif 'ROOT_FORMULA' in os.environ:
         org, formula = os.environ['ROOT_FORMULA'].split('/')
         deps = resolve_deps.get_reqs_recursive(org, formula)
     elif os.path.exists(md_file):
@@ -512,7 +516,7 @@ def get_deps(root_dir):
                 org, formula = dep.split(':')[1].split('/')
                 deps.update(resolve_deps.get_reqs_recursive(org, formula))
     else:
-        print 'No ROOOT_FORMULA defined and no metadata file found.'
+        print 'No ROOT_FORMULA defined and no metadata file found.'
         sys.exit(1)
 
     req_file = os.path.join(root_dir, 'formula-requirements.txt')
@@ -523,28 +527,38 @@ def get_deps(root_dir):
             req_file.write(
                 'git@github.com:{0}/{1}.git=={2}\n'.format(org, formula, tag))
 
-@task
-def shaker():
+
+def shaker(root_formula=None, root_dir='.'):
     """
     utility task to initiate Shaker in the most typical way
     """
-    root_dir = os.path.dirname(env.real_fabfile)
-    get_deps(root_dir)
+    get_deps(root_dir, root_formula)
     shaker_instance = Shaker(root_dir=root_dir)
     shaker_instance.install_requirements()
 
 
-@task
-def freeze():
-    """
-    utility task to check current versions
-    """
-    local('for d in vendor/formula-repos/*; do echo -n "$d "; git --git-dir=$d/.git describe --tags 2>/dev/null || git --git-dir=$d/.git rev-parse --short HEAD; done', shell='/bin/bash')
+# @task
+# def freeze():
+#     """
+#     utility task to check current versions
+#     """
+#     local('for d in vendor/formula-repos/*; do echo -n "$d "; git --git-dir=$d/.git describe --tags 2>/dev/null || git --git-dir=$d/.git rev-parse --short HEAD; done', shell='/bin/bash')
+#
+#
+# @task
+# def check():
+#     """
+#     utility task to check if there are no new versions available
+#     """
+#     local('for d in vendor/formula-repos/*; do (export GIT_DIR=$d/.git; git fetch --tags -q 2>/dev/null; echo -n "$d: "; latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1 2>/dev/null) 2>/dev/null || echo "no tags"); current=$(git describe --tags 2>/dev/null || echo "no tags"); echo "\tlatest: $latest_tag  current: $current"); done', shell='/bin/bash')
 
 
-@task
-def check():
-    """
-    utility task to check if there are no new versions available
-    """
-    local('for d in vendor/formula-repos/*; do (export GIT_DIR=$d/.git; git fetch --tags -q 2>/dev/null; echo -n "$d: "; latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1 2>/dev/null) 2>/dev/null || echo "no tags"); current=$(git describe --tags 2>/dev/null || echo "no tags"); echo "\tlatest: $latest_tag  current: $current"); done', shell='/bin/bash')
+#TODO
+# Integrate with cotton
+# generate formula skeleton
+# unit tests
+# low pri: move to pygit2
+# change tasks above not to depend on fabric if possible
+# move shaker task in cotton or separate tasks file
+# document metadata.yml
+# Think about formatting, multiple protocols, vers, criteria (<>=.....)
