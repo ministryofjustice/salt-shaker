@@ -14,6 +14,6 @@ setup(
         'Fabric',
         'GitPython==0.3.2.RC1',
         'requests',
-        'PyYAML'
+        'PyYAML', 'pygit2'
     ]
 )

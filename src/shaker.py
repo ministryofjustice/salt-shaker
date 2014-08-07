@@ -1,7 +1,12 @@
 import cmd
 import sys
-
+import logging
 import salt_shaker
+
+
+logging.basicConfig()
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 class ShakerCommandLine(cmd.Cmd):
