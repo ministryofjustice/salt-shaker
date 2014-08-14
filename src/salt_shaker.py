@@ -2,10 +2,8 @@ import logging
 import os
 import sys
 import re
-import tempfile
 import time
 import shutil
-import stat
 import errno
 
 import pygit2
@@ -17,103 +15,17 @@ from textwrap import dedent
 import resolve_deps
 import yaml
 
-SSH_WRAPPER_SCRIPT = """#!/bin/bash
-ssh -o VisualHostKey=no "$@"
-"""
-
-class GitSshEnvWrapper(object):
-    def __enter__(self):
-        """
-        Setup SSH to remove VisualHostKey - it breaks GitPython's attempt to
-        parse git output :(
-
-        Will delete file once the object gets GC'd
-        """
-
-        self.old_env_value = os.environ.get('GIT_SSH', None)
-
-        self.git_ssh_wrapper = tempfile.NamedTemporaryFile(prefix='cotton-git-ssh')
-
-        self.git_ssh_wrapper.write(SSH_WRAPPER_SCRIPT)
-        self.git_ssh_wrapper.file.flush()
-        os.fchmod(self.git_ssh_wrapper.file.fileno(), stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-        self.git_ssh_wrapper.file.close()
-
-        os.environ['GIT_SSH'] = self.git_ssh_wrapper.name
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.old_env_value is not None:
-            os.environ['GIT_SSH'] = self.old_env_value
-        else:
-            os.environ.pop('GIT_SSH')
-
 
 class Shaker(object):
     """
-    Recursively walk formula-requirements.txt and manully pull in those
-    versions of the specified formulas.
+    Start from a root formula and calculate all necessary dependencies,
+    based on metadata stored in each formula.
 
     How it works
     ------------
 
     Salt Shaker works by creating an extra file root that must be copied up to
     your salt server and added to the master config.
-
-    Setup
-    ~~~~~
-
-    **1. Define the vendor_formulas task**
-
-    In your fabfile you will need to add a snippet like this to vendor the
-    formulas just before you rsync them to the server::
-
-        @task
-        def vendor_formulas():
-            from cotton.salt_shaker import Shaker
-            shaker = Shaker(root_dir=os.path.dirname(env.real_fabfile))
-            shaker.install_requirements()
-
-    We recommend that you call this at the start of your rsync task too.
-
-    **2. Rsync the managed root to the salt master **
-
-    You will also need to ensure that you rsync the ``vendor/_root`` directory
-    up to your salt master, with symlinks resolved, not copied as is::
-
-        vendor_formulas()
-        sudo('mkdir -p /srv/salt-formulas')
-        smart_rsync_project('/srv/salt-formulas', 'vendor/_root/', for_user='root', extra_opts='-L', delete=True)
-
-    Your complete rsync task will now look something like this::
-
-        @task
-        def rsync():
-            vendor_formulas()
-
-            sudo('mkdir -p /srv/salt /srv/salt-formulas /srv/pillar')
-
-            smart_rsync_project('/srv/salt-formulas', 'vendor/_root/', for_user='root', extra_opts='-L', delete=True)
-            smart_rsync_project('/srv/salt', 'salt/', for_user='root', extra_opts='-L', delete=True)
-            smart_rsync_project('/srv/pillar', '{}/'.format(get_pillar_location()), for_user='root', extra_opts='-L', delete=True)
-
-
-    **3. Add the extra root to the salt master config**
-
-    You will need to add this new, managed root directory to the list of paths
-    that the salt master searches for files under. We recommend adding it to
-    the end so that any thing can be overridden by a matching file in
-    ``salt/_libs`` if needed (but hopefully it shouldn't be).
-
-    The bits of your `/etc/salt/master` config should look like this::
-
-        file_roots:
-          base:
-            - /srv/salt
-            - /srv/salt/_libs
-            - /srv/salt-formulas
-
-        fileserver_backend:
-          - roots
 
 
     The formula-requirements.txt file
@@ -140,7 +52,8 @@ class Shaker(object):
 
 
     """
-    dynamic_modules_dirs = ['_modules', '_grains', '_renderers', '_returners', '_states']
+    dynamic_modules_dirs = ['_modules', '_grains', '_renderers',
+                            '_returners', '_states']
 
     def __init__(self, root_dir, salt_root_path='vendor',
                  clone_path='formula-repos', salt_root='_root'):
@@ -158,7 +71,8 @@ class Shaker(object):
         self._setup_logger()
         self.fetched_formulas = {}
         self.parsed_requirements_files = set()
-        self.first_requirement_file = os.path.join(root_dir, 'formula-requirements.txt')
+        self.first_requirement_file = os.path.join(root_dir,
+                                                   'formula-requirements.txt')
         self.requirements_files = [
             self.first_requirement_file
         ]
@@ -278,30 +192,24 @@ class Shaker(object):
         repo_dir = os.path.join(self.repos_dir, formula['name'] + "-formula")
         repo = self._open_repo(repo_dir, formula['url'])
 
-        refs = repo.listall_references()
-        the_ref = None
-        for ref in refs:
-            if formula['revision'] in ref:
-                the_ref = ref
-                break
-        if not the_ref:
-            the_ref = 'refs/heads/master'
-
-        repo.checkout(the_ref)
 
         sha = self._fetch_and_resolve_sha(formula, repo)
         # print formula['name'], the_ref, sha
+
         target = os.path.join(self.roots_dir, formula['name'])
         if sha is None:
             if not os.path.exists(target):
                 raise RuntimeError("%s: Formula marked as resolved but target '%s' didn't exist" % (formula['name'], target))
             return repo_dir, target
 
-        # TODO: Check if the working tree is dirty, and (if request/flagged)
-        # reset it to this sha
-        # if not repo.head.is_valid():
-        #     logging.debug("Resetting invalid head on: {}\n".format(formula['name']))
-        #     repo.head.reset(commit=sha, index=True, working_tree=True)
+        oid = pygit2.Oid(hex=sha)
+        repo.checkout_tree(repo[oid].tree)
+        # The line below is *NOT* just setting a value.
+        # Pygit2 internally resets the head of the filesystem to the OID we set.
+        #
+        #
+        # In other words .... *** WARNING: MAGIC IN PROGRESS ***
+        repo.head = oid
 
         if repo.head.get_object().hex != sha:
             logging.debug("Resetting sha mismatch on: {}\n".format(formula['name']))
@@ -458,18 +366,16 @@ class Shaker(object):
             if branch_ref in refs:
                 full_ref = repo.lookup_reference(branch_ref)
                 is_branch = True
-
                 # Don't treat the sha as resolved until we've updated the
                 # remote
                 if full_ref and have_updated:
                     sha = full_ref.get_object().hex
-                else:
-                    continue
+                    return sha
 
             # Could just be a SHA
             try:
-                sha = repo.revparse_single(formula['revision']) \
-                    if is_branch else None
+                sha = repo.revparse_single(formula['revision']).hex \
+                    if not is_branch else None
             except KeyError:
                 # Maybe we just need to fetch first.
                 pass
@@ -499,30 +405,51 @@ class Shaker(object):
             have_updated = True
 
 
-def get_deps(root_dir, root_formula=None):
-    if os.path.exists(os.path.join(root_dir, 'formula-requirements.txt')):
+def get_deps(root_dir, root_formula=None, constraint=None, force=False):
+    if not force and os.path.exists(os.path.join(
+            root_dir, 'formula-requirements.txt')):
         return
+
+    formulas = []
     deps = {}
+
     print 'No formula-requirements found. Will generate one.'
     if 'GITHUB_TOKEN' not in os.environ:
         print 'Env variable GITHUB_TOKEN has not been set.'
         sys.exit(1)
     md_file = os.path.join(root_dir, 'metadata.yml')
     if root_formula:
-        org, formula = root_formula.split('/')
-        deps = resolve_deps.get_reqs_recursive(org, formula)
+        toks = root_formula.split('/')
+        if constraint:
+            toks.append(constraint)
+        else:
+            toks.append('')
+        formulas.append(toks)
     elif 'ROOT_FORMULA' in os.environ:
-        org, formula = os.environ['ROOT_FORMULA'].split('/')
-        deps = resolve_deps.get_reqs_recursive(org, formula)
+        toks = os.environ['ROOT_FORMULA'].split('/')
+        if 'ROOT_CONSTRAINT' in os.environ:
+            toks.append(os.environ['ROOT_CONSTRAINT'])
+        else:
+            toks.append('')
+        formulas.append(toks)
     elif os.path.exists(md_file):
         with open(md_file, 'r') as md_fd:
             data = yaml.load(md_fd)
             for dep in data['dependencies']:
-                org, formula = dep.split(':')[1].split('/')
-                deps.update(resolve_deps.get_reqs_recursive(org, formula))
+                parts = dep.split(' ')
+                toks = parts[0].split(':')[1].split('/')
+                if len(parts) > 1:
+                    toks.append(' '.join(parts[2:]))
+                else:
+                    toks.append('')
+                formulas.append(toks)
     else:
         print 'No ROOT_FORMULA defined and no metadata file found.'
         sys.exit(1)
+
+    for org, formula, constraint in formulas:
+        deps.update(resolve_deps.get_reqs_recursive(org, formula,
+                                                    constraint=constraint))
 
     req_file = os.path.join(root_dir, 'formula-requirements.txt')
     with open(req_file, 'w') as req_file:
@@ -533,15 +460,21 @@ def get_deps(root_dir, root_formula=None):
                 'git@github.com:{0}/{1}.git=={2}\n'.format(org, formula, tag))
 
 
-def shaker(root_formula=None, root_dir='.'):
+def shaker(root_formula=None, root_dir='.', root_constraint=None, force=False):
     """
     utility task to initiate Shaker in the most typical way
     """
     if not os.path.exists(root_dir):
         os.makedirs(root_dir, 0755)
-    get_deps(root_dir, root_formula)
+    get_deps(root_dir, root_formula, constraint=root_constraint, force=force)
     shaker_instance = Shaker(root_dir=root_dir)
     shaker_instance.install_requirements()
+
+
+
+#find all repos in directory
+#get current tag or sha of HEAD if no tags available from each repo
+
 
 
 # @task
@@ -561,11 +494,11 @@ def shaker(root_formula=None, root_dir='.'):
 
 
 #TODO
-# Integrate with cotton
 # generate formula skeleton
 # unit tests
-# low pri: move to pygit2
 # change tasks above not to depend on fabric if possible
-# move shaker task in cotton or separate tasks file
 # document metadata.yml
 # Think about formatting, multiple protocols, vers, criteria (<>=.....)
+
+
+# move shaker task in cotton or separate tasks file
