@@ -41,15 +41,21 @@ def gt(tag_versions, tag):
         if map(int, candidate_tag.split('.')) > tag_int:
             return candidate_tag
 
-
 constraint_map = {'==': eq,
                   '>=': ge,
                   '<=': le,
                   '<': lt,
-                  '>': ge}
+                  '>': gt}
 
 
 def get_tags(org_name, formula_name):
+    def convert_tagname(tag):
+        try:
+            return map(int, tag.split('.'))
+        except ValueError:
+            print 'Invalid tag {0}'.format(tag)
+            return []
+
     tags_url = 'https://api.github.com/repos/{0}/{1}/tags'
     tag_versions = []
     tags_json = requests.get(tags_url.format(org_name, formula_name),
@@ -57,7 +63,7 @@ def get_tags(org_name, formula_name):
     if tags_json.status_code == 200:
         tag_data = json.loads(tags_json.text)
         tag_versions = [x['name'][1:] for x in tag_data]
-        tag_versions.sort(key=lambda s: map(int, s.split('.')))
+        tag_versions.sort(key=convert_tagname)
         wanted_tag = 'v{0}'.format(tag_versions[-1])
     else:
         wanted_tag = 'master'
@@ -140,13 +146,16 @@ def get_reqs(org_name, formula_name, constraint=None):
     return res
 
 
-def get_reqs_recursive(org_name, formula_name, deps={}, constraint=None):
+def get_reqs_recursive(org_name, formula_name, deps={}, constraint=None,
+                       pins=None):
     key = '%s/%s' % (org_name, formula_name)
-    deps[key] = get_reqs(org_name, formula_name, constraint=constraint)
+    pin = pins[key] if key in set(pins) else None
+    constraint = pin if pin else constraint
 
+    deps[key] = get_reqs(org_name, formula_name, constraint=constraint)
     for org, formula, constraint in deps[key]['deps']:
         if '%s/%s' % (org, formula) not in deps:
-            ret = get_reqs_recursive(org, formula,
-                                     deps=deps, constraint=constraint)
+            ret = get_reqs_recursive(org, formula, deps=deps,
+                                     constraint=constraint, pins=pins)
             deps.update(ret)
     return deps

@@ -4,16 +4,15 @@ import sys
 import re
 import time
 import shutil
+import urlparse
 import errno
+import glob
+from textwrap import dedent
 
 import pygit2
-# from git import Repo
-# from git.exc import GitCommandError
-from textwrap import dedent
-# from fabric.api import local, task, env
+import yaml
 
 import resolve_deps
-import yaml
 
 
 class Shaker(object):
@@ -119,8 +118,9 @@ class Shaker(object):
 
         #Change git cli style URLs to libgit format
         # (username@host:repo to git://username@host/repo)
+        # TODO: Use urlparse to parse the url.
         if url[0:4] == 'git@':
-            url = 'git://{0}'.format(url.replace(':', '/', 1))
+            url = 'ssh://{0}'.format(url.replace(':', '/', 1))
 
         return {
             'url': url,
@@ -177,7 +177,6 @@ class Shaker(object):
 
             self.logger.info("Checking %s" % req_file)
             for formula in self.parse_requirements_file(req_file):
-                # print formula
                 (repo_dir, _) = self.install_requirement(formula)
 
                 self.fetched_formulas.setdefault(formula['name'], formula)
@@ -194,7 +193,6 @@ class Shaker(object):
 
 
         sha = self._fetch_and_resolve_sha(formula, repo)
-        # print formula['name'], the_ref, sha
 
         target = os.path.join(self.roots_dir, formula['name'])
         if sha is None:
@@ -209,7 +207,7 @@ class Shaker(object):
         #
         #
         # In other words .... *** WARNING: MAGIC IN PROGRESS ***
-        repo.head = oid
+        repo.set_head(oid)
 
         if repo.head.get_object().hex != sha:
             logging.debug("Resetting sha mismatch on: {}\n".format(formula['name']))
@@ -312,14 +310,21 @@ class Shaker(object):
         return target_sha
 
     def _open_repo(self, repo_dir, upstream_url):
-        # Split things out into multiple steps and checks to be Ctrl-c resilient
+        git_url = urlparse.urlparse(upstream_url)
+        username = git_url.netloc.split('@')[0]\
+            if '@' in git_url.netloc else 'git'
+        credentials = pygit2.credentials.KeypairFromAgent(username)
         if os.path.isdir(repo_dir):
             repo = pygit2.Repository(repo_dir)
         else:
-            repo = pygit2.clone_repository(upstream_url, repo_dir)
+            repo = pygit2.clone_repository(upstream_url, repo_dir,
+                                           credentials=credentials)
         origin = filter(lambda x: x.name == 'origin', repo.remotes)
         if not origin:
             repo.create_remote('origin', upstream_url)
+            origin = filter(lambda x: x.name == 'origin', repo.remotes)
+        origin[0].credentials = credentials
+
         self.logger.info('Cloned {}'.format(upstream_url))
         return repo
 
@@ -348,10 +353,19 @@ class Shaker(object):
         origin = None
         for remote in repo.remotes:
             if remote.name == 'origin':
+                url_bits = urlparse.urlparse(remote.url)
+                if url_bits.scheme == 'git':
+                    remote.url = 'ssh://{0}{1}'.format(url_bits.netloc,
+                                                       url_bits.path)
+                    remote.save()
                 origin = remote
                 break
         if not origin:
             raise RuntimeError("Unable to find origin for repo.")
+        url = urlparse.urlparse(origin.url)
+        username = url.netloc.split('@')[0] if '@' in url.netloc else 'git'
+        origin.credentials = pygit2.credentials.KeypairFromAgent(username)
+
         for attempt in range(0, 2):
             # Try a tag first. Treat it as immutable so if we find it then
             # we don't have to fetch the remote repo
@@ -405,18 +419,8 @@ class Shaker(object):
             have_updated = True
 
 
-def get_deps(root_dir, root_formula=None, constraint=None, force=False):
-    if not force and os.path.exists(os.path.join(
-            root_dir, 'formula-requirements.txt')):
-        return
-
+def get_formulas(root_formula=None, root_dir='.', constraint=None):
     formulas = []
-    deps = {}
-
-    print 'No formula-requirements found. Will generate one.'
-    if 'GITHUB_TOKEN' not in os.environ:
-        print 'Env variable GITHUB_TOKEN has not been set.'
-        sys.exit(1)
     md_file = os.path.join(root_dir, 'metadata.yml')
     if root_formula:
         toks = root_formula.split('/')
@@ -438,6 +442,8 @@ def get_deps(root_dir, root_formula=None, constraint=None, force=False):
             for dep in data['dependencies']:
                 parts = dep.split(' ')
                 toks = parts[0].split(':')[1].split('/')
+                if '.git' == toks[1][-4:]:
+                    toks[1] = toks[1].split('.git')[0]
                 if len(parts) > 1:
                     toks.append(' '.join(parts[2:]))
                 else:
@@ -446,7 +452,24 @@ def get_deps(root_dir, root_formula=None, constraint=None, force=False):
     else:
         print 'No ROOT_FORMULA defined and no metadata file found.'
         sys.exit(1)
+    return formulas
 
+
+def get_deps(root_dir, root_formula=None, constraint=None, force=False):
+    if not force and os.path.exists(os.path.join(
+            root_dir, 'formula-requirements.txt')):
+        return
+
+    deps = {}
+
+    print 'No formula-requirements found. Will generate one.'
+    if 'GITHUB_TOKEN' not in os.environ:
+        print 'Env variable GITHUB_TOKEN has not been set.'
+        sys.exit(1)
+
+    formulas = get_formulas(root_formula=root_formula,
+                            root_dir=root_dir,
+                            constraint=constraint)
     for org, formula, constraint in formulas:
         deps.update(resolve_deps.get_reqs_recursive(org, formula,
                                                     constraint=constraint))
@@ -471,6 +494,11 @@ def shaker(root_formula=None, root_dir='.', root_constraint=None, force=False):
     shaker_instance.install_requirements()
 
 
+def freeze(root_dir='.'):
+    formula_dir = '{}/vendor/formula_repos/'.format(root_dir)
+    formula_repos = glob.glob('{}/*-formula'.format(formula_dir))
+    for formula in formulas:
+        repo = pygit2.Repository(formula)
 
 #find all repos in directory
 #get current tag or sha of HEAD if no tags available from each repo
