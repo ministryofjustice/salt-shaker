@@ -1,11 +1,11 @@
 from distutils.core import setup
 
 setup(
-    name='shaker',
+    name='salt-shaker',
     version='0.0.1',
     package_dir={'': 'src'},
     packages=['shaker'],
-    url='',
+    url='http://github.com/ministryofjustice/salt_shaker',
     license='',
     author='MoJ DS Infrastucture Team',
     author_email='webops@digital.justice.gov.uk',
@@ -13,7 +13,7 @@ setup(
     install_requires=[
         'requests',
         'PyYAML',
-        'pygit2'
+        'pygit2',
     ],
-    dependency_links=[]
+    scripts=['scripts/salt-shaker'],
 )

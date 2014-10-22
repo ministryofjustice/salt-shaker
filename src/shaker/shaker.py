@@ -42,8 +42,12 @@ class ShakerCommandLine(cmd.Cmd):
         print msg
 
 
+    def run(self, argv):
+        if len(argv) > 1:
+            self.onecmd(' '.join(argv[1:]))
+        else:
+            self.do_help('')
+
+
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        ShakerCommandLine().onecmd(' '.join(sys.argv[1:]))
-    else:
-        ShakerCommandLine().do_help('')
+    ShakerCommandLine().run(sys.argv)
