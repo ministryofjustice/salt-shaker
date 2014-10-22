@@ -424,7 +424,7 @@ def get_formulas(root_formula=None, root_dir='.', constraint=None):
     md_file = os.path.join(root_dir, 'metadata.yml')
     if root_formula:
         for top_formula in root_formula.split(','):
-            toks = root_formula.split('/')
+            toks = top_formula.split('/')
             if constraint:
                 toks.append(constraint)
             else:
