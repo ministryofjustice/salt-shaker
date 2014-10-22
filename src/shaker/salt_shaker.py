@@ -423,12 +423,13 @@ def get_formulas(root_formula=None, root_dir='.', constraint=None):
     formulas = []
     md_file = os.path.join(root_dir, 'metadata.yml')
     if root_formula:
-        toks = root_formula.split('/')
-        if constraint:
-            toks.append(constraint)
-        else:
-            toks.append('')
-        formulas.append(toks)
+        for top_formula in root_formula.split(','):
+            toks = root_formula.split('/')
+            if constraint:
+                toks.append(constraint)
+            else:
+                toks.append('')
+            formulas.append(toks)
     elif 'ROOT_FORMULA' in os.environ:
         toks = os.environ['ROOT_FORMULA'].split('/')
         if 'ROOT_CONSTRAINT' in os.environ:
