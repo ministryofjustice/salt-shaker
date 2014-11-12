@@ -13,7 +13,7 @@ setup(
     install_requires=[
         'requests',
         'PyYAML',
-        'pygit2',
+        'pygit2 >= 0.21.4',
     ],
     scripts=['scripts/salt-shaker'],
 )
