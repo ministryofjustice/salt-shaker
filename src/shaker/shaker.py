@@ -1,4 +1,4 @@
-import cmd
+import argparse
 import sys
 import logging
 
@@ -10,43 +10,37 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-class ShakerCommandLine(cmd.Cmd):
-    def shake(self, line, force=False):
-        if line and '=' not in line:
-            print "syntax error."
-            return False
-        parms = dict([x.split('=') for x in line.split(' ')])\
-            if isinstance(line, basestring) else {}
-        if force in parms and parms['force'].lower() != 'false':
-            parms['force'] = True
-        salt_shaker.shaker(**parms)
+class ShakerCommandLine(object):
 
-    def do_shake(self, line):
-        self.shake(line)
+    def run(self, cli_args):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
 
-    def do_update(self, line):
-        self.shake(line, force=True)
+        common_args = argparse.ArgumentParser(add_help=False)
+        common_args.add_argument('--root_dir',
+            default='.', help="Working path to operate under")
+        common_args.add_argument('--root_constraint', default=argparse.SUPPRESS)
+        common_args.add_argument('--root_formula', default=argparse.SUPPRESS)
 
-    def default(self, line):
-        return self.do_help(line)
+        parser_shake = subparsers.add_parser('shake', help="Install formulas and requirements", parents=[common_args])
+        parser_shake.set_defaults(force=False)
+        parser_shake.set_defaults(func=self.shake)
 
-    def help_shake(self):
-        msg = '''Start from root formula and download all prerequisites.\n'''\
-        '''Parameters:\n'''\
-        '''\troot_dir=<path> path to working directory. Default: '.'\n'''\
-        '''\tforce=<True/False> recalculate dependencies if True'''
-        print msg
+        parser_update = subparsers.add_parser('update', help="?", parents=[common_args])
+        parser_update.set_defaults(force=True)
+        parser_update.set_defaults(func=self.shake)
 
-    def help_update(self):
-        msg = '''Convenience command equal to "shaker force=True" '''
-        print msg
+        args_ns = parser.parse_args(args=cli_args)
+        # Convert the args as Namespace to dict a so we can pass it as kwargs to a function
+        args = vars(args_ns)
 
+        return args.pop('func')(**args)
 
-    def run(self, argv):
-        if len(argv) > 1:
-            self.onecmd(' '.join(argv[1:]))
-        else:
-            self.do_help('')
+    def shake(self, **kwargs):
+        salt_shaker.shaker(**kwargs)
+
+    def do_update(self, argv):
+        self.shake(argv=argv, force=True)
 
 
 if __name__ == '__main__':

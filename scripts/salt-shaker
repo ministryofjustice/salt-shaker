@@ -3,4 +3,4 @@
 import sys
 from shaker.shaker import ShakerCommandLine
 
-ShakerCommandLine().run(sys.argv)
+ShakerCommandLine().run(sys.argv[1:])
