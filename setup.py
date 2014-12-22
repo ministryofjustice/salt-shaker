@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name='salt-shaker',
@@ -14,5 +14,9 @@ setup(
         'PyYAML',
         'pygit2 >= 0.21.4',
     ],
+    tests_require=[
+        'responses',
+    ],
+    setup_requires=['nose>=1.0'],
     scripts=['scripts/salt-shaker'],
 )
