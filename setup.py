@@ -3,7 +3,6 @@ from distutils.core import setup
 setup(
     name='salt-shaker',
     version='0.0.1',
-    package_dir={'': 'src'},
     packages=['shaker'],
     url='http://github.com/ministryofjustice/salt_shaker',
     license='',
