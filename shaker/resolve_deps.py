@@ -146,8 +146,11 @@ def get_reqs(org_name, formula_name, constraint=None):
     return res
 
 
-def get_reqs_recursive(org_name, formula_name, deps={}, constraint=None,
+def get_reqs_recursive(org_name, formula_name, deps=None, constraint=None,
                        pins=None):
+    if deps is None:
+        deps = {}
+
     key = '%s/%s' % (org_name, formula_name)
     pin = pins[key] if (pins and key in set(pins)) else None
     constraint = pin if pin else constraint
