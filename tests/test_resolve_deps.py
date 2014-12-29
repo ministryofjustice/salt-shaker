@@ -48,14 +48,14 @@ class ResolveDepsTest(unittest.TestCase):
         got = resolve_deps.get_tags("ministryofjustice", "simple-formula")
         latest_tag = 'v1.1'
         all_vers = ['0.1', '1.1']
-        self.assertEqual(got, (latest_tag, all_vers))
+        self.assertEqual((latest_tag, all_vers), got)
 
     @patch.object(resolve_deps, 'get_tags')
     def test_check_constraint_none(self, mock_get_tags):
         mock_get_tags.return_value = ('v1.1.0', ['0.1.0', '1.1.0'])
 
-        wanted = resolve_deps.check_constraint('ministryofjustice', 'simple-formula', None)
-        self.assertEqual(wanted, 'v1.1.0', 'No constraint, just give latest release')
+        got = resolve_deps.check_constraint('ministryofjustice', 'simple-formula', None)
+        self.assertEqual('v1.1.0', got, 'No constraint, just give latest release')
 
         mock_get_tags.assert_called_with('ministryofjustice', 'simple-formula')
 
@@ -63,8 +63,8 @@ class ResolveDepsTest(unittest.TestCase):
     def test_check_constraint_gt(self, mock_get_tags):
         mock_get_tags.return_value = ('v1.1.0', ['0.1.0', '1.1.0'])
 
-        wanted = resolve_deps.check_constraint('ministryofjustice', 'simple-formula', '>=v1.0.0')
-        self.assertEqual(wanted, 'v1.1.0', 'We asked for >=v1.0.0')
+        got = resolve_deps.check_constraint('ministryofjustice', 'simple-formula', '>=v1.0.0')
+        self.assertEqual('v1.1.0', got, 'We asked for >=v1.0.0')
 
         mock_get_tags.assert_called_with('ministryofjustice', 'simple-formula')
 
@@ -72,8 +72,8 @@ class ResolveDepsTest(unittest.TestCase):
     def test_check_constraint_lt(self, mock_get_tags):
         mock_get_tags.return_value = ('v1.1.0', ['0.1.0', '1.1.0'])
 
-        wanted = resolve_deps.check_constraint('ministryofjustice', 'simple-formula', '<=v1.0.0')
-        self.assertEqual(wanted, 'v0.1.0', 'We asked for <=v1.0.0')
+        got = resolve_deps.check_constraint('ministryofjustice', 'simple-formula', '<=v1.0.0')
+        self.assertEqual('v0.1.0', got, 'We asked for <=v1.0.0')
 
         mock_get_tags.assert_called_with('ministryofjustice', 'simple-formula')
 
@@ -83,8 +83,8 @@ class ResolveDepsTest(unittest.TestCase):
     def test_check_constraint_prerelease(self, mock_get_tags):
         mock_get_tags.return_value = ('v1.1.0', ['0.1.0', '1.1.0'])
 
-        wanted = resolve_deps.check_constraint('ministryofjustice', 'simple-formula', '==v1.0.0-dev.lpa')
-        self.assertEqual(wanted == 'v0.1.0', 'We asked for a Specific version')
+        got = resolve_deps.check_constraint('ministryofjustice', 'simple-formula', '==v1.0.0-dev.lpa')
+        self.assertEqual('v0.1.0', got, 'We asked for a specific version')
 
         mock_get_tags.assert_called_with('ministryofjustice', 'simple-formula')
 
@@ -108,14 +108,14 @@ class ResolveDepsTest(unittest.TestCase):
 
         reqs = resolve_deps.get_reqs('ministryofjustice', 'simple-formula')
 
-        self.assertEqual(reqs, {
+        self.assertEqual({
             'tag': 'v1.1.0',
             'deps': [
                 ['ministryofjustice', 'firewall-formula', ''],
                 ['ministryofjustice', 'repos-formula', '']
             ],
             'metadata': metadata
-        })
+        }, reqs)
 
     @responses.activate
     @patch.object(resolve_deps, 'check_constraint')
@@ -139,13 +139,13 @@ class ResolveDepsTest(unittest.TestCase):
         mock_check_constraint.return_value = 'v1.1.0'
         reqs = resolve_deps.get_reqs('ministryofjustice', 'simple-formula')
 
-        self.assertEqual(reqs, {
+        self.assertEqual({
             'tag': 'v1.1.0',
             'deps': [
                 ['ministryofjustice', 'firewall-formula', ''],
                 ['ministryofjustice', 'repos-formula', '']
             ],
-        })
+        }, reqs)
 
         mock_check_constraint.assert_called_once_with('ministryofjustice', 'simple-formula', None)
 
@@ -168,13 +168,13 @@ class ResolveDepsTest(unittest.TestCase):
 
         reqs = resolve_deps.get_reqs('ministryofjustice', 'simple-formula', 'v1.0.0')
 
-        self.assertEqual(reqs, {
+        self.assertEqual({
             'tag': 'v1.0.0',
             'deps': [
                 ['ministryofjustice', 'firewall-formula', ''],
             ],
             'metadata': metadata,
-        })
+        }, reqs)
 
     @patch.object(resolve_deps, 'get_reqs')
     def test_get_reqs_recursive__simple(self, mock_get_reqs):
@@ -199,7 +199,7 @@ class ResolveDepsTest(unittest.TestCase):
 
         deps = resolve_deps.get_reqs_recursive('ministryofjustice', 'simple-formula')
 
-        self.assertEqual(deps, all_formulas)
+        self.assertEqual(all_formulas, deps)
 
     @patch.object(resolve_deps, 'get_reqs')
     def test_get_reqs_recursive__loop(self, mock_get_reqs):
@@ -236,4 +236,4 @@ class ResolveDepsTest(unittest.TestCase):
 
         deps = resolve_deps.get_reqs_recursive('ministryofjustice', 'toplevel-formula')
 
-        self.assertEqual(deps, all_formulas)
+        self.assertEqual(all_formulas, deps)
