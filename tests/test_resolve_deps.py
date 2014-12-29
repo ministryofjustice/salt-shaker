@@ -2,6 +2,7 @@ import os
 import unittest
 import responses
 import yaml
+import json
 
 from mock import patch
 
@@ -16,31 +17,33 @@ class ResolveDepsTest(unittest.TestCase):
 
     @responses.activate
     def test_get_tags(self):
-        responses.add(responses.GET,
-                      "https://api.github.com/repos/ministryofjustice/simple-formula/tags",
-                      content_type="application/json",
-                      body="""
-                [
-                  {
-                    "name": "v0.1",
-                    "commit": {
-                      "sha": "c5b97d5ae6c19d5c5df71a34c7fbeeda2479ccbc",
-                      "url": "https://api.github.com/repos/octocat/Hello-World/commits/c5b97d5ae6c19d5c5df71a34c7fbeeda2479ccbc"
-                    },
-                    "zipball_url": "https://github.com/octocat/Hello-World/zipball/v0.1",
-                    "tarball_url": "https://github.com/octocat/Hello-World/tarball/v0.1"
-                  },
-                  {
-                    "name": "v1.1",
-                    "commit": {
-                      "sha": "fake",
-                      "url": "https://api.github.com/repos/octocat/Hello-World/commits/fake"
-                    },
-                    "zipball_url": "https://github.com/octocat/Hello-World/zipball/v1.1",
-                    "tarball_url": "https://github.com/octocat/Hello-World/tarball/v1.1"
-                  }
-                ]
-        """)
+        json_resp = [
+            {
+                "name": "v0.1",
+                "commit": {
+                    "sha": "c5b97d5ae6c19d5c5df71a34c7fbeeda2479ccbc",
+                    "url": "https://api.github.com/repos/octocat/Hello-World/commits/c5b97d5ae6c19d5c5df71a34c7fbeeda2479ccbc"
+                },
+                "zipball_url": "https://github.com/octocat/Hello-World/zipball/v0.1",
+                "tarball_url": "https://github.com/octocat/Hello-World/tarball/v0.1"
+            },
+            {
+                "name": "v1.1",
+                "commit": {
+                    "sha": "fake",
+                    "url": "https://api.github.com/repos/octocat/Hello-World/commits/fake"
+                },
+                "zipball_url": "https://github.com/octocat/Hello-World/zipball/v1.1",
+                "tarball_url": "https://github.com/octocat/Hello-World/tarball/v1.1"
+            }
+        ]
+
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/ministryofjustice/simple-formula/tags",
+            content_type="application/json",
+            body=json.dumps(json_resp)
+        )
 
         got = resolve_deps.get_tags("ministryofjustice", "simple-formula")
         latest_tag = 'v1.1'
