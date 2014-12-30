@@ -1,9 +1,8 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name='salt-shaker',
     version='0.0.1',
-    package_dir={'': 'src'},
     packages=['shaker'],
     url='http://github.com/ministryofjustice/salt_shaker',
     license='',
@@ -15,5 +14,9 @@ setup(
         'PyYAML',
         'pygit2 >= 0.21.4',
     ],
+    tests_require=[
+        'responses',
+    ],
+    setup_requires=['nose>=1.0'],
     scripts=['scripts/salt-shaker'],
 )
