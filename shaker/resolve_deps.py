@@ -5,7 +5,6 @@ import requests
 import json
 import yaml
 
-github_token = os.environ.get('GITHUB_TOKEN', None)
 const_re = re.compile('([=><]+)\s*(.*)')
 tag_re = re.compile('v[0-9]+\.[0-9]+\.[0-9]+')
 
@@ -56,6 +55,12 @@ def get_tags(org_name, formula_name):
             print 'Invalid tag {0}'.format(tag)
             return []
 
+
+    github_token = os.environ.get('GITHUB_TOKEN', None)
+    if not github_token:
+        print 'GITHUB_TOKEN is not defined. Aborting'
+        sys.exit(1)
+
     tags_url = 'https://api.github.com/repos/{0}/{1}/tags'
     tag_versions = []
     tags_json = requests.get(tags_url.format(org_name, formula_name),
@@ -103,6 +108,7 @@ def check_constraint(org_name, formula_name, constraint):
 
 
 def get_reqs(org_name, formula_name, constraint=None):
+    github_token = os.environ.get('GITHUB_TOKEN', None)
     if not github_token:
         print 'GITHUB_TOKEN is not defined. Aborting'
         sys.exit(1)

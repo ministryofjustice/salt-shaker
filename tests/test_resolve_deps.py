@@ -7,13 +7,13 @@ import json
 from mock import patch
 
 
-# TODO: This needs fixing - right now it stores this token as a module-scoped
-# variable at import time :(
-os.environ['GITHUB_TOKEN'] = 'fake'
 from shaker import resolve_deps
 
 
 class ResolveDepsTest(unittest.TestCase):
+
+    def setUp(self):
+        os.environ['GITHUB_TOKEN'] = 'fake'
 
     @responses.activate
     def test_get_tags(self):
