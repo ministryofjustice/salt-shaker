@@ -446,7 +446,7 @@ def get_formulas(root_formula=None, root_dir='.', constraint=None):
                 if '.git' == toks[1][-4:]:
                     toks[1] = toks[1].split('.git')[0]
                 if len(parts) > 1:
-                    toks.append(' '.join(parts[2:]))
+                    toks.append(' '.join(parts[1:]))
                 else:
                     toks.append('')
                 formulas.append(toks)
