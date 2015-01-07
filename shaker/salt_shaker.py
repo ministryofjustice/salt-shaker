@@ -498,7 +498,7 @@ def shaker(root_formula=None, root_dir='.', root_constraint=None, force=False):
 def freeze(root_dir='.'):
     formula_dir = '{}/vendor/formula_repos/'.format(root_dir)
     formula_repos = glob.glob('{}/*-formula'.format(formula_dir))
-    for formula in formulas:
+    for formula in formula_repos:
         repo = pygit2.Repository(formula)
 
 #find all repos in directory
