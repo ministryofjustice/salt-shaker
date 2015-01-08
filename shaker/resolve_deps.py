@@ -152,19 +152,27 @@ def get_reqs(org_name, formula_name, constraint=None):
     return res
 
 
-def get_reqs_recursive(org_name, formula_name, deps=None, constraint=None,
-                       pins=None):
+def get_reqs_recursive(formulas, deps=None, constraint=None,
+                       pins=None, top_level=True, root_formulas=None):
     if deps is None:
         deps = {}
+        root_formulas = formulas
+    for org_name, formula_name, constraint in formulas:
+        key = '%s/%s' % (org_name, formula_name)
+        if not top_level and (True in [x[0] == org_name and x[1] ==
+                              formula_name in x for x in root_formulas]):
+            # formula in root_formulas so skipping for now
+            # if we don't then any tag may get overwriten.
+            continue
+        if key not in deps:
+            # if in deps then it's been processed already
+            pin = pins[key] if (pins and key in set(pins)) else None
+            constraint = pin if pin else constraint
 
-    key = '%s/%s' % (org_name, formula_name)
-    pin = pins[key] if (pins and key in set(pins)) else None
-    constraint = pin if pin else constraint
-
-    deps[key] = get_reqs(org_name, formula_name, constraint=constraint)
-    for org, formula, constraint in deps[key]['deps']:
-        if '%s/%s' % (org, formula) not in deps:
-            ret = get_reqs_recursive(org, formula, deps=deps,
-                                     constraint=constraint, pins=pins)
+            deps[key] = get_reqs(org_name, formula_name, constraint=constraint)
+            formulas = deps[key]['deps']
+            ret = get_reqs_recursive(formulas, deps=deps,
+                                     constraint=constraint, pins=pins,
+                                     top_level=False, root_formulas=root_formulas)
             deps.update(ret)
     return deps

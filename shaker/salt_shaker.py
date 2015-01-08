@@ -471,9 +471,9 @@ def get_deps(root_dir, root_formula=None, constraint=None, force=False):
     formulas = get_formulas(root_formula=root_formula,
                             root_dir=root_dir,
                             constraint=constraint)
-    for org, formula, constraint in formulas:
-        deps.update(resolve_deps.get_reqs_recursive(org, formula,
-                                                    constraint=constraint))
+
+    deps.update(resolve_deps.get_reqs_recursive(formulas,
+                                                constraint=constraint))
 
     req_file = os.path.join(root_dir, 'formula-requirements.txt')
     with open(req_file, 'w') as req_file:
