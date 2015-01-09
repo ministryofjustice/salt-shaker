@@ -152,8 +152,8 @@ def get_reqs(org_name, formula_name, constraint=None):
     return res
 
 
-def get_reqs_recursive(formulas, deps=None, constraint=None,
-                       pins=None, top_level=True, root_formulas=None):
+def get_reqs_recursive(formulas, deps=None, pins=None,
+                       top_level=True, root_formulas=None):
     if deps is None:
         deps = {}
         root_formulas = formulas
