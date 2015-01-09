@@ -159,7 +159,7 @@ def get_reqs_recursive(formulas, deps=None, constraint=None,
         root_formulas = formulas
     for org_name, formula_name, constraint in formulas:
         key = '%s/%s' % (org_name, formula_name)
-        if not top_level and (True in [x[0] == org_name and x[1] ==
+        if not top_level and any([x[0] == org_name and x[1] ==
                               formula_name in x for x in root_formulas]):
             # formula in root_formulas so skipping for now
             # if we don't then any tag may get overwriten.
