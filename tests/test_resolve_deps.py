@@ -197,7 +197,7 @@ class ResolveDepsTest(unittest.TestCase):
 
         mock_get_reqs.side_effect = get_reqs_return_value
 
-        deps = resolve_deps.get_reqs_recursive('ministryofjustice', 'simple-formula')
+        deps = resolve_deps.get_reqs_recursive([['ministryofjustice', 'simple-formula', '']])
 
         self.assertEqual(all_formulas, deps)
 
@@ -234,6 +234,6 @@ class ResolveDepsTest(unittest.TestCase):
 
         mock_get_reqs.side_effect = get_reqs_return_value
 
-        deps = resolve_deps.get_reqs_recursive('ministryofjustice', 'toplevel-formula')
+        deps = resolve_deps.get_reqs_recursive([['ministryofjustice', 'toplevel-formula', '']])
 
         self.assertEqual(all_formulas, deps)

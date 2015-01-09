@@ -171,8 +171,7 @@ def get_reqs_recursive(formulas, deps=None, pins=None,
 
             deps[key] = get_reqs(org_name, formula_name, constraint=constraint)
             formulas = deps[key]['deps']
-            ret = get_reqs_recursive(formulas, deps=deps,
-                                     constraint=constraint, pins=pins,
+            ret = get_reqs_recursive(formulas, deps=deps, pins=pins,
                                      top_level=False, root_formulas=root_formulas)
             deps.update(ret)
     return deps
