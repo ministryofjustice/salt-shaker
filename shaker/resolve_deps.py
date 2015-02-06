@@ -141,10 +141,11 @@ def get_reqs(org_name, formula_name, constraint=None):
         reqs = filter(lambda x: len(x) > 0, reqs.text.split('\n'))
 
     out = []
-    for req in reqs:
-        org, formula = req.split(':')[1].split('.git')[0].split('/')
-        constraint = req.split('.git')[1] if found_metadata else ''
-        out.append(map(str, (org, formula, constraint)))
+    if reqs:
+        for req in reqs:
+            org, formula = req.split(':')[1].split('.git')[0].split('/')
+            constraint = req.split('.git')[1] if found_metadata else ''
+            out.append(map(str, (org, formula, constraint)))
 
     res = {'tag': wanted_tag, 'deps': out}
     if data:

@@ -237,3 +237,32 @@ class ResolveDepsTest(unittest.TestCase):
         deps = resolve_deps.get_reqs_recursive([['ministryofjustice', 'toplevel-formula', '']])
 
         self.assertEqual(all_formulas, deps)
+
+    @patch.object(resolve_deps, 'get_reqs')
+    def test_get_reqs_empty_deps(self, mock_get_reqs):
+        all_formulas = {
+            'ministryofjustice/simple-formula': {
+                'tag' : None,
+                'deps': [],
+                'metadata': {
+                    'entry': None, 
+                    'dependencies': None
+                 }
+            }
+        }
+
+        def get_reqs_return_value(org, formula, constraint):
+            return all_formulas["{}/{}".format(org, formula)]
+
+        mock_get_reqs.side_effect = get_reqs_return_value
+
+        deps = resolve_deps.get_reqs('ministryofjustice', 'simple-formula', '')
+
+        self.assertEqual({
+            'tag' : None,
+            'deps': [],
+            'metadata': {
+                'entry': None, 
+                'dependencies': None
+             }
+        }, deps)
