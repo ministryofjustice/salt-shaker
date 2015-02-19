@@ -131,7 +131,7 @@ def get_reqs(org_name, formula_name, constraint=None):
     if metadata.status_code == 200:
         found_metadata = True
         data = yaml.load(metadata.text)
-        reqs = data['dependencies']
+        reqs = data['dependencies'] if 'dependencies' in data and data['dependencies'] else []
     else:
         reqs = requests.get(req_url.format(org_name, formula_name,
                                            wanted_tag, reqs_file),
