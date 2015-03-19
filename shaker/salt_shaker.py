@@ -13,6 +13,7 @@ import pygit2
 import yaml
 
 import resolve_deps
+import helpers
 
 
 class Shaker(object):
@@ -464,8 +465,8 @@ def get_deps(root_dir, root_formula=None, constraint=None, force=False):
     deps = {}
 
     print 'No formula-requirements found. Will generate one.'
-    if 'GITHUB_TOKEN' not in os.environ:
-        print 'Env variable GITHUB_TOKEN has not been set.'
+    github_token = helpers.get_valid_github_token()
+    if not github_token:
         sys.exit(1)
 
     formulas = get_formulas(root_formula=root_formula,
