@@ -2,6 +2,7 @@ import logging
 import json
 import requests
 import os
+import re
 
 def get_valid_github_token(online_validation_enabled = False):
     """
@@ -97,3 +98,59 @@ def validate_github_access(response):
                     logging.error("Unknown problem checking credentials: %s" % response_message)
     
     return valid_credentials
+
+def parse_metadata(metadata):
+    """
+    Entry function to handle the metadata parsing workflow and return a metadata 
+    object which is cleaned up
+    
+    Args:
+        metadata (dictionary): Keyed salt formula dependency information
+    
+    Returns:
+        parsed_metadata (dictionary): The original metadata parsed and cleaned up
+    """
+    # Remove duplicates
+    parsed_metadata = resolve_metadata_duplicates(metadata)
+    return parsed_metadata
+    
+def resolve_metadata_duplicates(metadata):
+    """
+    Strip duplicates out of a metadata file. If we have no additional criteria, 
+    simply take the first one. Or can resolve by latest version or preferred organisation
+    if required
+    
+    Args:
+        metadata (dictionary): Keyed salt formula dependency information
+    
+    Returns:
+        resolved_dependencies (dictionary): The original metadata stripped of duplicates
+            If the metadata could not be resolved then we return the original args version
+    """ 
+    # Only start to make alterations if we have a valid metadata format
+    # Otherwise ignore and just return the one we were passed as an argument
+    if metadata and (type(metadata) == type({})) and ("dependencies" in metadata):
+        # Count the duplicates we find
+        count_duplicates = 0
+        
+        resolved_dependency_collection = {}
+        for dependency in metadata["dependencies"]:
+            # Filter out formula name
+            org, formula = dependency.split(':')[1].split('.git')[0].split('/')
+            
+            # Simply take the first formula found, ignore subsequent
+            # formulas with the same name even from different organisations
+            # Just warn, not erroring out
+            if not formula in resolved_dependency_collection:
+                resolved_dependency_collection[formula] = dependency 
+            else:
+                # Do some sort of tag resolution
+                count_duplicates += 1
+                logging.warning("resolve_metadata_duplicates: Skipping duplicate dependency %s" %(formula))
+        
+        # Only alter the metadata if we need to
+        if count_duplicates > 0:   
+            resolved_dependencies = resolved_dependency_collection.values()
+            metadata["dependencies"] = resolved_dependencies
+    return metadata
+    
