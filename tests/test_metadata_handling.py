@@ -1,39 +1,27 @@
 import unittest
 import yaml
 from shaker import helpers
-
+from nose.tools import raises
 
 class TestMetadataHandling(unittest.TestCase):
 
     # Sample metadata with duplicates
     _sample_metadata_duplicates = {
         "dependencies": [
-            "git@github.com:test_organisation/test1-formula.git",
-            "git@github.com:test_organisation/test1-formula.git",
-            "git@github.com:test_organisation/test2-formula.git",
-            "git@github.com:test_organisation/test3-formula.git",
-            "git@github.com:test_organisation/test3-formula.git"
+            "git@github.com:test_organisation/test1-formula.git==v1.0.1",
+            "git@github.com:test_organisation/test1-formula.git==v1.0.2",
+            "git@github.com:test_organisation/test2-formula.git==v2.0.1",
+            "git@github.com:test_organisation/test3-formula.git==v3.0.1",
+            "git@github.com:test_organisation/test3-formula.git==v3.0.2"
         ],
         "entry": ["dummy"]
     }
 
     _sample_metadata_no_duplicates = {
         "dependencies": [
-            "git@github.com:test_organisation/test1-formula.git",
-            "git@github.com:test_organisation/test2-formula.git",
-            "git@github.com:test_organisation/test3-formula.git"
-        ],
-        "entry": ["dummy"]
-    }
-
-    # Sample config that yaml load will fail to parse
-    _sample_metadata_bad_yaml = {
-        "dependencies": [
-            "git@github.com:test_organisation/test1-formula.git",
-            "git@github.com:test_organisation/test1-formula.git",
-            "git@github.com:test_organisation/test2-formula.git",
-            "git@github.com:test_organisation/test3-formula.git",
-            "git@github.com:test_organisation/test3-formula.git"
+            "git@github.com:test_organisation/test1-formula.git==v1.0.1",
+            "git@github.com:test_organisation/test2-formula.git==v2.0.1",
+            "git@github.com:test_organisation/test3-formula.git==v3.0.1"
         ],
         "entry": ["dummy"]
     }
@@ -63,11 +51,17 @@ class TestMetadataHandling(unittest.TestCase):
                             "test_resolve_metadata_duplicates: Entry '%s' not found in de-duplicated metadata"
                             % (expected_metadata_entry))
 
+    @raises(TypeError)
     def test_resolve_metadata_duplicates_bad_metadata_object(self):
         """
-        Check if resolve_metadata_duplicates can handle bad yaml
-        data without breaking anything
+        Check if bad yaml metadata will throw up a TypeError.
         """
-        expected = self._sample_metadata_bad_yaml
-        result = helpers.resolve_metadata_duplicates(self._sample_metadata_bad_yaml)
-        self.assertEqual(result, expected, "")
+        # Callable with bad metadata
+        helpers.resolve_metadata_duplicates("not-a-dictionary")
+
+    @raises(IndexError)
+    def test_resolve_metadata_duplicates_metadata_missing_index(self):
+        """
+        Check if metadata with a missing index will throw an error
+        """
+        helpers.resolve_metadata_duplicates({})
