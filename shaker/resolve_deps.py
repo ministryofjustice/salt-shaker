@@ -131,7 +131,8 @@ def get_reqs(org_name, formula_name, constraint=None):
      # Check for successful access and any credential problems
     if helpers.validate_github_access(metadata):
         found_metadata = True
-        data = yaml.load(metadata.text)
+        # Read in the yaml metadata from body, stripping out duplicate entries
+        data = helpers.parse_metadata(yaml.load(metadata.text))
         reqs = data['dependencies'] if 'dependencies' in data and data['dependencies'] else []
     else:
         reqs = requests.get(req_url.format(org_name, formula_name,
