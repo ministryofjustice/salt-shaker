@@ -38,7 +38,8 @@ class TestSaltShaker(unittest.TestCase):
             ["test_organisation", "test3-formula.git==v3.0.1", ''],
         ]
         mock_load_metadata_from_file.return_value = self._sample_metadata_root
-        actual_formulas = salt_shaker.get_formulas()
+        obj_shaker = salt_shaker.Shaker('.')
+        actual_formulas = obj_shaker.get_formulas()
 
         self.assertEqual(actual_formulas,
                          expected_formulas,

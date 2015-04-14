@@ -56,8 +56,15 @@ class Shaker(object):
     dynamic_modules_dirs = ['_modules', '_grains', '_renderers',
                             '_returners', '_states']
 
+    # The root directory
+    root_dir = None
+    # The local metadata
+    local_metadata = None
+
     def __init__(self, root_dir, salt_root_path='vendor',
-                 clone_path='formula-repos', salt_root='_root'):
+                 clone_path='formula-repos', 
+                 salt_root='_root',
+                 metadata_filename='metadata.yml'):
         """
         There is a high chance you don't want to change the paths here.
 
@@ -82,6 +89,12 @@ class Shaker(object):
         # first_requirement_file override anything from further down. This is a
         # hack to avoid dependency hell until we get SemVer in
         self.override_version_from_toplevel = True
+
+        # Set the local root directory
+        self.root_dir = root_dir
+        # Load in the local metadata
+        self.local_metadata = helpers.load_metadata_from_file(root_dir,
+                                                              metadata_filename)
 
     def _create_dirs(self):
         """
@@ -319,8 +332,16 @@ class Shaker(object):
         if os.path.isdir(repo_dir):
             repo = pygit2.Repository(repo_dir)
         else:
-            repo = pygit2.clone_repository(upstream_url, repo_dir,
+            try:
+                repo = pygit2.clone_repository(upstream_url, repo_dir,
                                            credentials=credentials)
+            except pygit2.errors.GitError as e:
+                logging.error("Shaker::_open_repo: Problem cloning "
+                              " repository '%s', %s"
+                              % (upstream_url, e)
+                              )
+                sys.exit(1)
+
         origin = filter(lambda x: x.name == 'origin', repo.remotes)
         if not origin:
             repo.create_remote('origin', upstream_url)
@@ -421,82 +442,75 @@ class Shaker(object):
             have_updated = True
 
 
-def get_formulas(root_dir='.'):
-    """
-    Read in metadata from the supplied directory, then use
-    this data to generate a list of required formulas
+    def get_formulas(self):
+        """
+        Read in metadata from the supplied directory, then use
+        this data to generate a list of required formulas
 
-    Args:
-        root_dir(string): The directory to use as the base
+        Returns:
+            formulas(list): A list of formulas of the form
+                [<organisation>, <name>, <constraint>
+        """
+        formulas = []
 
-    Returns:
-        formulas(list): A list of formulas of the form
-            [<organisation>, <name>, <constraint>
-    """
-    formulas = []
-    file_name = 'metadata.yml'
+        if self.local_metadata:
+            for dep in self.local_metadata.get('dependencies', []):
+                parts = dep.split(' ')
+                toks = parts[0].split(':')[1].split('/')
+                if '.git' == toks[1][-4:]:
+                    toks[1] = toks[1].split('.git')[0]
+                if len(parts) > 1:
+                    toks.append(' '.join(parts[1:]))
+                else:
+                    toks.append('')
+                logging.info("salt_shaker::get_formulas: Appending formula '%s'"
+                             % (toks))
+                formulas.append(toks)
+        else:
+            logging.error('salt-shaker:get_formulas: No metadata file found.')
+            sys.exit(1)
 
-    # Load in the metadata
-    data = helpers.load_metadata_from_file(root_dir, file_name)
-    if data:
-        for dep in data.get('dependencies', []):
-            parts = dep.split(' ')
-            toks = parts[0].split(':')[1].split('/')
-            if '.git' == toks[1][-4:]:
-                toks[1] = toks[1].split('.git')[0]
-            if len(parts) > 1:
-                toks.append(' '.join(parts[1:]))
-            else:
-                toks.append('')
-            logging.info("salt_shaker::get_formulas: Appending formula '%s'"
-                         % (toks))
-            formulas.append(toks)
-    else:
-        logging.error('salt-shaker:get_formulas: No metadata file found.')
-        sys.exit(1)
+        return formulas
 
-    return formulas
+    def get_deps(self, force=False):
+        if not force and os.path.exists(os.path.join(
+                self.root_dir, 'formula-requirements.txt')):
+            return
 
+        deps = {}
 
-def get_deps(root_dir, force=False):
-    if not force and os.path.exists(os.path.join(
-            root_dir, 'formula-requirements.txt')):
-        return
+        logging.info('No formula-requirements found. Will generate one.')
+        github_token = helpers.get_valid_github_token()
+        if not github_token:
+            sys.exit(1)
 
-    deps = {}
+        formulas = self.get_formulas()
 
-    print 'No formula-requirements found. Will generate one.'
-    github_token = helpers.get_valid_github_token()
-    if not github_token:
-        sys.exit(1)
+        # See if we've got a root_formula
+        # Look for a root formula name in metadata
+        root_formula_entry = self.local_metadata.get("name", None)
+        root_formulas = []
+        if root_formula_entry:
+            org, formula = root_formula_entry.split('/')
+            root_formulas.append([org, formula, ''])
+            logging.info("salt_shaker::get_deps: Found root formula '%s'"
+                         % ([org, formula, '']))
+        else:
+            logging.info("salt-shaker:get_deps: "
+                         "No root formula name found, "
+                         "assuming this is a non-root formula")
 
-    formulas = get_formulas(root_dir=root_dir)
+        deps.update(resolve_deps.get_reqs_recursive(formulas,
+                                                    root_formulas=root_formulas)
+                    )
 
-    # See if we've got a root_formula
-    # Look for a root formula name in metadata
-    data = helpers.load_metadata_from_file()
-    root_formula = data.get("name", None)
-    if root_formula:
-        org, formula = root_formula.split('/')
-        formulas.append([org, formula, ''])
-        logging.info("salt_shaker::get_deps: Found root formula '%s'"
-                     % ([org, formula, '']))
-    else:
-        logging.info("salt-shaker:get_deps: "
-                     "No root formula name found, "
-                     "assuming this is a non-root formula")
-
-    deps.update(resolve_deps.get_reqs_recursive(formulas,
-                                                root_formulas=[root_formula])
-                )
-
-    req_file = os.path.join(root_dir, 'formula-requirements.txt')
-    with open(req_file, 'w') as req_file:
-        for dep in deps:
-            org, formula = dep.split('/')
-            tag = deps[dep]['tag']
-            req_file.write(
-                'git@github.com:{0}/{1}.git=={2}\n'.format(org, formula, tag))
+        req_file = os.path.join(self.root_dir, 'formula-requirements.txt')
+        with open(req_file, 'w') as req_file:
+            for dep in deps:
+                org, formula = dep.split('/')
+                tag = deps[dep]['tag']
+                req_file.write(
+                    'git@github.com:{0}/{1}.git=={2}\n'.format(org, formula, tag))
 
 
 def shaker(root_dir='.', force=False, verbose=False):
@@ -508,8 +522,8 @@ def shaker(root_dir='.', force=False, verbose=False):
 
     if not os.path.exists(root_dir):
         os.makedirs(root_dir, 0755)
-    get_deps(root_dir, force=force)
     shaker_instance = Shaker(root_dir=root_dir)
+    shaker_instance.get_deps(force=force)
     shaker_instance.install_requirements()
 
 
