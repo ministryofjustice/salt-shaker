@@ -1,13 +1,7 @@
 import argparse
 import sys
-import logging
 
 import salt_shaker
-
-
-logging.basicConfig()
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 
 
 class ShakerCommandLine(object):
@@ -17,11 +11,16 @@ class ShakerCommandLine(object):
         subparsers = parser.add_subparsers()
 
         common_args = argparse.ArgumentParser(add_help=False)
-        common_args.add_argument('--root_dir', default='.', help="Working path to operate under")
-        common_args.add_argument('-v', 
-                                 '--verbose', 
-                                 action='store_true', 
+        common_args.add_argument('--root_dir',
+                                 default='.',
+                                 help="Working path to operate under")
+        common_args.add_argument('-v',
+                                 '--verbose',
+                                 action='store_true',
                                  help="Enable verbose output")
+        common_args.add_argument('--debug',
+                                 action='store_true',
+                                 help="Enable debugging output")
 
         parser_shake = subparsers.add_parser('shake', help="Install formulas and requirements", parents=[common_args])
         parser_shake.set_defaults(force=False)

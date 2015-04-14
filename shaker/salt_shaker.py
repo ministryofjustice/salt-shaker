@@ -173,7 +173,7 @@ class Shaker(object):
         The parsing of each line is handled by parse_requirement
         """
         if not os.path.exists(filename):
-            print '%s not found. skipping' % filename
+            logging.info('%s not found. skipping' % filename)
             return []
 
         with open(filename, 'r') as fh:
@@ -435,10 +435,10 @@ class Shaker(object):
             msg = "Fetching %s" % origin.url
             if is_branch:
                 msg = msg + " to see if %s has changed" % formula['revision']
-            sys.stdout.write(msg)
+            logging.info(msg)
             origin.add_fetch("refs/tags/*:refs/tags/*")
             self._block_while_fetching(origin.fetch())
-            print(" done")
+            logging.info(" done")
             have_updated = True
 
 
@@ -513,12 +513,18 @@ class Shaker(object):
                     'git@github.com:{0}/{1}.git=={2}\n'.format(org, formula, tag))
 
 
-def shaker(root_dir='.', force=False, verbose=False):
+def shaker(root_dir='.', force=False, verbose=False, debug=False):
     """
     utility task to initiate Shaker in the most typical way
     """
-    if (verbose):
-        logging.basicConfig(log_level=logging.INFO)
+    if (debug):
+        logging.basicConfig(level=logging.DEBUG)
+        logging.debug('shaker:: Debugging logging enabled.')
+    elif (verbose):
+        logging.basicConfig(level=logging.INFO)
+        logging.info('shaker:: Verbose logging enabled.')
+    else:
+        logging.basicConfig(level=logging.WARN)
 
     if not os.path.exists(root_dir):
         os.makedirs(root_dir, 0755)

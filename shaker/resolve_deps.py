@@ -5,6 +5,7 @@ import requests
 import json
 import yaml
 import helpers
+import logging
 
 const_re = re.compile('([=><]+)\s*(.*)')
 tag_re = re.compile('v[0-9]+\.[0-9]+\.[0-9]+')
@@ -53,7 +54,9 @@ def get_tags(org_name, formula_name):
         try:
             return map(int, tag.split('.'))
         except ValueError:
-            print 'Invalid tag {0}'.format(tag)
+            logging.info('resolve_deps::get_tags: Invalid tag %s for '
+                         '%s/%s'
+                         % (format(tag), org_name, formula_name))
             return []
 
 
@@ -109,11 +112,18 @@ def check_constraint(org_name, formula_name, constraint):
 
 
 def get_reqs(org_name, formula_name, constraint=None):
+    logging.debug('resolve_deps::get_reqs(\n'
+                  'org_name=%s,\n'
+                  'formula_name=%s,\n'
+                  'constraint=%s\n,'
+                  ')'
+                  % (org_name, formula_name, constraint)
+                  )
     github_token = helpers.get_valid_github_token()
     if not github_token:
         sys.exit(1)
 
-    print 'Processing {0}/{1}'.format(org_name, formula_name)
+    logging.info('Processing {0}/{1}'.format(org_name, formula_name))
     req_url = 'https://raw.githubusercontent.com/{0}/{1}/{2}/{3}'
     reqs_file = 'formula-requirements.txt'
     metadata_file = 'metadata.yml'
@@ -152,11 +162,23 @@ def get_reqs(org_name, formula_name, constraint=None):
     res = {'tag': wanted_tag, 'deps': out}
     if data:
         res['metadata'] = data
+
+    logging.debug('resolve_deps::get_reqs:retval: %s' % res)
+
     return res
 
 
 def get_reqs_recursive(formulas, deps=None, pins=None,
                        top_level=True, root_formulas=None):
+    logging.debug('resolve_deps::get_reqs_recursive(\n'
+                  'formulas=%s,\n'
+                  'deps=%s,\n'
+                  'pins=%s\n,'
+                  'top_level=%s,\n'
+                  'root_formulas=%s\n'
+                  ')'
+                  % (formulas, deps, pins, top_level, root_formulas)
+                  )
     if deps is None:
         deps = {}
         root_formulas = formulas
@@ -177,4 +199,7 @@ def get_reqs_recursive(formulas, deps=None, pins=None,
             ret = get_reqs_recursive(formulas, deps=deps, pins=pins,
                                      top_level=False, root_formulas=root_formulas)
             deps.update(ret)
+
+    logging.debug('resolve_deps::get_reqs_recursive:retval: %s'
+                  % (deps))
     return deps

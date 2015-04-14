@@ -5,6 +5,7 @@ import os
 import re
 import yaml
 
+
 def get_valid_github_token(online_validation_enabled = False):
     """
     Check for a github token environment variable. If its not there,
@@ -40,6 +41,7 @@ def get_valid_github_token(online_validation_enabled = False):
             github_token = os.environ["GITHUB_TOKEN"]
 
     return github_token
+
 
 def validate_github_access(response):
     """
@@ -90,15 +92,21 @@ def validate_github_access(response):
                     response_message = response_json["message"]
             except:
                 # Just ignore if we can'l load json, its not essential here
-                pass
                 if (response.status_code == 401) and ("Bad credentials" in response_message):
-                    logging.error("Github credentials incorrect: %s" % response_message)
+                    logging.error("Github credentials incorrect: %s: %s"
+                                  % (response.status_code, response_message))
                 elif response.status_code == 403 and ("Maximum number of login attempts exceeded" in response_message):
-                    logging.error("Github credentials failed due to lockout: %s" % response_message)
+                    logging.error("Github credentials failed due to lockout: %s: %s"
+                                  % (response.status_code, response_message))
+                elif response.status_code == 404:
+                    logging.info("Github credentials failed due to url not existing: %s: %s"
+                                 % (response.status_code, response_message))
                 else:
-                    logging.error("Unknown problem checking credentials: %s" % response_message)
+                    logging.warning("Unknown problem checking credentials: %s: %s"
+                                    % (response.status_code, response_message))
     
     return valid_credentials
+
 
 def parse_metadata(metadata):
     """
