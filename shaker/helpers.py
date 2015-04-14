@@ -3,6 +3,7 @@ import json
 import requests
 import os
 import re
+import yaml
 
 def get_valid_github_token(online_validation_enabled = False):
     """
@@ -164,3 +165,29 @@ def resolve_metadata_duplicates(metadata):
 
     return metadata
 
+
+def load_metadata_from_file(root_dir=".",
+                            file_name="metadata.yml"):
+    """
+    A simple helper function to load in a metadata file 
+    using expected defaults. Note, this does not
+    fail, if theres no file or no data, None
+    is returned.
+
+    Args:
+        root_dir(string): The root directory to look for the 
+            file in
+        file_name(string): The filename of the metadata file
+
+    Returns:
+        data(dictionary): A dictionary of data loaded from 
+            the file if found. NoneType if no file or
+            data found
+    """
+    md_file = os.path.join(root_dir, file_name)
+    if os.path.exists(md_file):
+        with open(md_file, 'r') as md_fd:
+            data = yaml.load(md_fd)
+            return data
+
+    return None
