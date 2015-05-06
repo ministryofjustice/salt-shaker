@@ -12,8 +12,9 @@ from textwrap import dedent
 import pygit2
 import yaml
 
-import resolve_deps
-import helpers
+from shaker.libs import logger
+from shaker_metadata import ShakerMetadata
+from shaker_remote import ShakerRemote
 
 
 class Shaker(object):
@@ -68,470 +69,50 @@ class Shaker(object):
         self.roots_dir = os.path.join(root_dir, salt_root_path, salt_root)
         self.repos_dir = os.path.join(root_dir, salt_root_path, clone_path)
 
-        self._setup_logger()
-        self.fetched_formulas = {}
-        self.parsed_requirements_files = set()
-        self.first_requirement_file = os.path.join(root_dir,
-                                                   'formula-requirements.txt')
-        self.requirements_files = [
-            self.first_requirement_file
-        ]
+        self._root_dir = root_dir
+        self._shaker_metadata = ShakerMetadata(root_dir)
 
-        # This makes any explicit version requirements in from the
-        # first_requirement_file override anything from further down. This is a
-        # hack to avoid dependency hell until we get SemVer in
-        self.override_version_from_toplevel = True
-
-    def _create_dirs(self):
-        """
-        Keep this out of init, so we don't remove files without re-adding them.
-        """
-
-        # Delete the salt roots dir on each run.
-        # This is because the files in roots_dir are just symlinks
-        if os.path.exists(self.roots_dir):
-            shutil.rmtree(self.roots_dir)
-        os.makedirs(self.roots_dir)
-
-        # Ensure the repos_dir exists
-        try:
-            os.makedirs(self.repos_dir)
-        except OSError:
-            pass
-
-    def _setup_logger(self):
-        logging.basicConfig()
-        self.logger = logging.getLogger(__name__)
-
-    def _is_from_top_level_requirement(self, file):
-        return file == self.first_requirement_file
-
-    def parse_requirement(self, requirement_str):
-        """
-        Requirement parsing.  Returns a dict containg the full URL to clone
-        (`url`), the name of the formula (`name`), a revision (if one is
-        specified or 'master' otherwise) (`revision`), and a indication of if
-        the revision was explicit or defaulted (`explicit_revision`).
-        """
-        requirement_str = requirement_str.strip()
-
-        (url, name, rev,) = re.search(r'(.*?/([^/]*?)(?:-formula)?(?:\.git)?)(?:==(.*?))?$', requirement_str).groups()
-
-        #Change git cli style URLs to libgit format
-        # (username@host:repo to git://username@host/repo)
-        # TODO: Use urlparse to parse the url.
-        if url[0:4] == 'git@':
-            url = 'ssh://{0}'.format(url.replace(':', '/', 1))
-
-        return {
-            'url': url,
-            'name': name,
-            'revision': rev or 'master',
-            'explicit_revision': bool(rev),
-        }
-
-    def parse_requirements_lines(self, lines, source_name):
-        """
-        Parse requirements from a list of lines, strips out comments and blank
-        lines and yields the list of requirements contained, as returned by
-        parse_requirement
-        """
-        for line in lines:
-            line = re.sub('#.*$', '', line).strip()
-            if not line or line.startswith('#'):
-                continue
-
-            req = self.parse_requirement(line)
-            if req is None:
-                continue
-
-            req['source'] = source_name
-
-            if self._is_from_top_level_requirement(source_name):
-                req['top_level_requirement'] = True
-
-            yield req
-
-    def parse_requirements_file(self, filename):
-        """
-        Parses the formula requirements, and yields dict objects for each line.
-
-        The parsing of each line is handled by parse_requirement
-        """
-        if not os.path.exists(filename):
-            print '%s not found. skipping' % filename
-            return []
-
-        with open(filename, 'r') as fh:
-            return self.parse_requirements_lines(fh.readlines(), filename)
-
-    def install_requirements(self):
-        self._create_dirs()
-
-        while len(self.requirements_files):
-            req_file = self.requirements_files.pop()
-            if req_file in self.parsed_requirements_files:
-                # Already parsed.
-                continue
-
-            self.parsed_requirements_files.add(req_file)
-
-            self.logger.info("Checking %s" % req_file)
-            for formula in self.parse_requirements_file(req_file):
-                (repo_dir, _) = self.install_requirement(formula)
-
-                self.fetched_formulas.setdefault(formula['name'], formula)
-
-    def install_requirement(self, formula):
-        """
-        Install the requirement as specified by the formula dictionary and
-        return the directory symlinked into the roots_dir
-        """
-        # self.check_for_version_clash(formula)
-
-        repo_dir = os.path.join(self.repos_dir, formula['name'] + "-formula")
-        repo = self._open_repo(repo_dir, formula['url'])
-
-
-        sha = self._fetch_and_resolve_sha(formula, repo)
-
-        target = os.path.join(self.roots_dir, formula['name'])
-        if sha is None:
-            if not os.path.exists(target):
-                raise RuntimeError("%s: Formula marked as resolved but target '%s' didn't exist" % (formula['name'], target))
-            return repo_dir, target
-
-        oid = pygit2.Oid(hex=sha)
-        repo.checkout_tree(repo[oid].tree)
-        # The line below is *NOT* just setting a value.
-        # Pygit2 internally resets the head of the filesystem to the OID we set.
-        #
-        #
-        # In other words .... *** WARNING: MAGIC IN PROGRESS ***
-        repo.set_head(oid)
-
-        if repo.head.get_object().hex != sha:
-            logging.debug("Resetting sha mismatch on: {}\n".format(formula['name']))
-            repo.reset(sha, pygit2.GIT_RESET_HARD)
-            # repo.head.reset(commit=sha, index=True, working_tree=True)
-
-        self.logger.debug("{formula[name]} is at {formula[revision]}".format(formula=formula))
-
-        source = os.path.join(repo_dir, formula['name'])
-        if os.path.exists(target):
-            raise RuntimeError("%s: Target '%s' conflicts with something else" % (formula['name'], target))
-
-        if os.path.exists(source):
-            relative_source = os.path.relpath(source, os.path.dirname(target))
-            os.symlink(relative_source, target)
-
-        self._link_dynamic_modules(formula)
-
-        return repo_dir, target
-
-    def _link_dynamic_modules(self, formula):
-        repo_dir = os.path.join(self.repos_dir, formula['name'] + "-formula")
-
-        for libdir in self.dynamic_modules_dirs:
-            targetdir = os.path.join(self.roots_dir, libdir)
-            sourcedir = os.path.join(repo_dir, libdir)
-
-            relative_source = os.path.relpath(sourcedir, targetdir)
-
-            if os.path.isdir(sourcedir):
-                for name in os.listdir(sourcedir):
-                    if not os.path.isdir(targetdir):
-                        os.mkdir(targetdir)
-                    sourcefile = os.path.join(relative_source, name)
-                    targetfile = os.path.join(targetdir, name)
-                    try:
-                        self.logger.info("linking {}".format(sourcefile))
-                        os.symlink(sourcefile, targetfile)
-                    except OSError as e:
-                        if e.errno == errno.EEXIST:  # already exist
-                            self.logger.info(
-                                "skipping to linking {} as there is a file with higher priority already there".
-                                format(sourcefile))
-                        else:
-                            raise
-
-    def _fetch_and_resolve_sha(self, formula, repo):
-        """
-        Work out what the wanted sha is for this formula. If we have already
-        satisfied this requirement then return None, else return the sha we
-        want `repo` to be at
-        """
-
-        previously_fetched = self.fetched_formulas.get(formula['name'], None)
-        target_sha = None
-
-        if previously_fetched is not None and \
-           previously_fetched.get('top_level_requirement', False) and \
-           previously_fetched['explicit_revision'] and self.override_version_from_toplevel:
-            self.logger.info("Overriding {name} version of {new_ver} to {old_ver} from project formula requirements".format(
-                name=formula['name'],
-                new_ver=formula['revision'],
-                old_ver=previously_fetched['revision'],
-            ))
-            formula['sha'] = previously_fetched['sha']
-
-            # Should already be up to date from when we installed
-            # previously_fetched
-            return None
-
-        elif 'sha' not in formula:
-            self.logger.debug("Resolving {formula[revision]} for {formula[name]}".format(
-                formula=formula))
-
-            target_sha = self._rev_to_sha(formula, repo)
-            if target_sha is None:
-                # This shouldn't happen as _rev_to_sha should throw. Safety net
-                raise RuntimeError("No sha resolved!")
-            formula['sha'] = target_sha
-
-        if previously_fetched is not None:
-            # The revisions might be specified as different strings but
-            # resolve to the same. So resolve both and check
-            if previously_fetched['sha'] != formula['sha']:
-
-                raise RuntimeError(dedent("""
-                    Formula revision clash for {new[name]}:
-                    - {old[revision]} <{old_sha}> (defined in {old[source]})
-                    + {new[revision]} <{new_sha}> (defined in {new[source]})""".format(
-                    old=previously_fetched,
-                    old_sha=previously_fetched['sha'][0:7],
-                    new=formula,
-                    new_sha=formula['sha'][0:7])
-                ))
-
-            # Nothing needed - we're already at a suitable sha from when we
-            # fetched it previously this run
-            return None
-
-        return target_sha
-
-    def _open_repo(self, repo_dir, upstream_url):
-        git_url = urlparse.urlparse(upstream_url)
-        username = git_url.netloc.split('@')[0]\
-            if '@' in git_url.netloc else 'git'
-        credentials = pygit2.credentials.KeypairFromAgent(username)
-        if os.path.isdir(repo_dir):
-            repo = pygit2.Repository(repo_dir)
+    def update_requirements(self, overwrite=False):
+        if overwrite:
+            ignore_root_requirements=True,
+            ignore_dependency_requirements=False
         else:
-            repo = pygit2.clone_repository(upstream_url, repo_dir,
-                                           credentials=credentials)
-        origin = filter(lambda x: x.name == 'origin', repo.remotes)
-        if not origin:
-            repo.create_remote('origin', upstream_url)
-            origin = filter(lambda x: x.name == 'origin', repo.remotes)
-        origin[0].credentials = credentials
+            ignore_root_requirements=False,
+            ignore_dependency_requirements=False
+        self._shaker_metadata.update_dependencies(ignore_root_requirements,
+                                                  ignore_dependency_requirements)
+        self._shaker_remote = ShakerRemote(self._shaker_metadata.dependencies)
+        self._shaker_remote.update_dependencies()
 
-        self.logger.info('Cloned {}'.format(upstream_url))
-        return repo
-
-    def _block_while_fetching(self, transfer_progress):
-        t_o = transfer_progress.total_objects
-        t_d = transfer_progress.total_deltas
-        while True:
-            i_o = transfer_progress.indexed_objects
-            i_d = transfer_progress.indexed_deltas
-            if i_d == t_d and i_o == t_o:
-                break
-            time.sleep(0.5)
-
-    def _rev_to_sha(self, formula, repo):
-        """
-        Try to resolve the revision into a SHA. If rev is a tag or a SHA then
-        try to avoid doing a fetch on the repo if we already know about it. If
-        it is a branch then make sure it is the tip of that branch (i.e. this
-        will do a git fetch on the repo)
-        """
-
-        have_updated = False
-        is_branch = False
-        sha = None
-        rev = formula['revision']
-        origin = None
-        for remote in repo.remotes:
-            if remote.name == 'origin':
-                url_bits = urlparse.urlparse(remote.url)
-                if url_bits.scheme == 'git':
-                    remote.url = 'ssh://{0}{1}'.format(url_bits.netloc,
-                                                       url_bits.path)
-                    remote.save()
-                origin = remote
-                break
-        if not origin:
-            raise RuntimeError("Unable to find origin for repo.")
-        url = urlparse.urlparse(origin.url)
-        username = url.netloc.split('@')[0] if '@' in url.netloc else 'git'
-        origin.credentials = pygit2.credentials.KeypairFromAgent(username)
-
-        for attempt in range(0, 2):
-            # Try a tag first. Treat it as immutable so if we find it then
-            # we don't have to fetch the remote repo
-            refs = repo.listall_references()
-            tag_ref = 'refs/tags/{}'.format(rev)
-            if tag_ref in refs:
-                return repo.lookup_reference(tag_ref).get_object().hex
-
-            # Next check for a branch - if it is one then we want to update
-            # as it might have changed since we last fetched
-            branch_ref = 'refs/remotes/origin/{}'.format(rev)
-            if branch_ref in refs:
-                full_ref = repo.lookup_reference(branch_ref)
-                is_branch = True
-                # Don't treat the sha as resolved until we've updated the
-                # remote
-                if full_ref and have_updated:
-                    sha = full_ref.get_object().hex
-                    return sha
-
-            # Could just be a SHA
-            try:
-                sha = repo.revparse_single(formula['revision']).hex \
-                    if not is_branch else None
-            except KeyError:
-                # Maybe we just need to fetch first.
-                pass
-
-            if sha:
-                return sha
-
-            if have_updated:
-                # If we've already updated once and get here
-                # then we can't find it :(
-                raise RuntimeError(
-                    "Could not find out what revision '{rev}' was for {url}"
-                    "(defined in {source}".format(
-                        rev=formula['revision'],
-                        url=formula['url'],
-                        source=formula['source']
-                    )
-                )
-
-            msg = "Fetching %s" % origin.url
-            if is_branch:
-                msg = msg + " to see if %s has changed" % formula['revision']
-            sys.stdout.write(msg)
-            origin.add_fetch("refs/tags/*:refs/tags/*")
-            self._block_while_fetching(origin.fetch())
-            print(" done")
-            have_updated = True
+    def install_requirements(self, overwrite=False):
+        self._shaker_remote.install_dependencies()
+        self._shaker_remote.write_requirements(overwrite=overwrite)
 
 
-def get_formulas(root_formula=None, root_dir='.', constraint=None):
-    formulas = []
-    md_file = os.path.join(root_dir, 'metadata.yml')
-    if root_formula:
-        for top_formula in root_formula.split(','):
-            toks = top_formula.split('/')
-            if constraint:
-                toks.append(constraint)
-            else:
-                toks.append('')
-            formulas.append(toks)
-    elif 'ROOT_FORMULA' in os.environ:
-        toks = os.environ['ROOT_FORMULA'].split('/')
-        if 'ROOT_CONSTRAINT' in os.environ:
-            toks.append(os.environ['ROOT_CONSTRAINT'])
-        else:
-            toks.append('')
-        formulas.append(toks)
-    elif os.path.exists(md_file):
-        with open(md_file, 'r') as md_fd:
-            data = yaml.load(md_fd)
-            for dep in data['dependencies']:
-                parts = dep.split(' ')
-                toks = parts[0].split(':')[1].split('/')
-                if '.git' == toks[1][-4:]:
-                    toks[1] = toks[1].split('.git')[0]
-                if len(parts) > 1:
-                    toks.append(' '.join(parts[1:]))
-                else:
-                    toks.append('')
-                formulas.append(toks)
-    else:
-        print 'No ROOT_FORMULA defined and no metadata file found.'
-        sys.exit(1)
-    return formulas
-
-
-def get_deps(root_dir, root_formula=None, constraint=None, force=False):
-    if not force and os.path.exists(os.path.join(
-            root_dir, 'formula-requirements.txt')):
-        return
-
-    deps = {}
-
-    print 'No formula-requirements found. Will generate one.'
-    github_token = helpers.get_valid_github_token()
-    if not github_token:
-        sys.exit(1)
-
-    formulas = get_formulas(root_formula=root_formula,
-                            root_dir=root_dir,
-                            constraint=constraint)
-
-    if root_formula:
-        org, formula = root_formula.split('/')
-        formulas = [org, formula, constraint]
-
-    deps.update(resolve_deps.get_reqs_recursive(formulas))
-
-    req_file = os.path.join(root_dir, 'formula-requirements.txt')
-    with open(req_file, 'w') as req_file:
-        for dep in deps:
-            org, formula = dep.split('/')
-            tag = deps[dep]['tag']
-            req_file.write(
-                'git@github.com:{0}/{1}.git=={2}\n'.format(org, formula, tag))
-
-
-def shaker(root_formula=None, root_dir='.', root_constraint=None, force=False):
+def setup_logging(level):
+    # Initialise the default app logging
+    logging.basicConfig()
+    logger.Logger('salt-shaker')
+    logger.Logger().setLevel(level)
+    logging.getLogger('shaker.helpers.github').setLevel(level)
+    logging.getLogger('shaker.helpers.metadata').setLevel(level)
+    
+def shaker(root_formula=None,
+           root_dir='.',
+           root_constraint=None,
+           debug=False,
+           verbose=False,
+           overwrite=False):
     """
     utility task to initiate Shaker in the most typical way
     """
+    if (debug):
+        setup_logging(logging.DEBUG)
+    elif (verbose):
+        setup_logging(logging.INFO)
     if not os.path.exists(root_dir):
         os.makedirs(root_dir, 0755)
-    get_deps(root_dir, root_formula, constraint=root_constraint, force=force)
     shaker_instance = Shaker(root_dir=root_dir)
-    shaker_instance.install_requirements()
+    shaker_instance.update_requirements(overwrite=overwrite)
+    shaker_instance.install_requirements(overwrite=overwrite)
 
-
-def freeze(root_dir='.'):
-    formula_dir = '{}/vendor/formula_repos/'.format(root_dir)
-    formula_repos = glob.glob('{}/*-formula'.format(formula_dir))
-    for formula in formula_repos:
-        repo = pygit2.Repository(formula)
-
-#find all repos in directory
-#get current tag or sha of HEAD if no tags available from each repo
-
-
-
-# @task
-# def freeze():
-#     """
-#     utility task to check current versions
-#     """
-#     local('for d in vendor/formula-repos/*; do echo -n "$d "; git --git-dir=$d/.git describe --tags 2>/dev/null || git --git-dir=$d/.git rev-parse --short HEAD; done', shell='/bin/bash')
-#
-#
-# @task
-# def check():
-#     """
-#     utility task to check if there are no new versions available
-#     """
-#     local('for d in vendor/formula-repos/*; do (export GIT_DIR=$d/.git; git fetch --tags -q 2>/dev/null; echo -n "$d: "; latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1 2>/dev/null) 2>/dev/null || echo "no tags"); current=$(git describe --tags 2>/dev/null || echo "no tags"); echo "\tlatest: $latest_tag  current: $current"); done', shell='/bin/bash')
-
-
-#TODO
-# generate formula skeleton
-# unit tests
-# change tasks above not to depend on fabric if possible
-# document metadata.yml
-# Think about formatting, multiple protocols, vers, criteria (<>=.....)
-
-
-# move shaker task in cotton or separate tasks file

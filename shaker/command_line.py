@@ -1,13 +1,8 @@
 import argparse
 import sys
-import logging
+import shaker.libs.logger
 
 import salt_shaker
-
-
-logging.basicConfig()
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 
 
 class ShakerCommandLine(object):
@@ -18,15 +13,15 @@ class ShakerCommandLine(object):
 
         common_args = argparse.ArgumentParser(add_help=False)
         common_args.add_argument('--root_dir', default='.', help="Working path to operate under")
-        common_args.add_argument('--root_constraint', default=argparse.SUPPRESS)
-        common_args.add_argument('--root_formula', default=argparse.SUPPRESS)
-
+        common_args.add_argument('--verbose', '-v', action='store_true', help="Enable verbose logging")
+        common_args.add_argument('--debug', action='store_true', help="Enable debug logging")
+       
         parser_shake = subparsers.add_parser('shake', help="Install formulas and requirements", parents=[common_args])
-        parser_shake.set_defaults(force=False)
+        parser_shake.set_defaults(overwrite=False)
         parser_shake.set_defaults(func=self.shake)
 
-        parser_update = subparsers.add_parser('update', help="?", parents=[common_args])
-        parser_update.set_defaults(force=True)
+        parser_update = subparsers.add_parser('update', help="Update formulas and requirements", parents=[common_args])
+        parser_update.set_defaults(overwrite=True)
         parser_update.set_defaults(func=self.shake)
 
         args_ns = parser.parse_args(args=self.back_compat_args_fix(cli_args))
@@ -46,9 +41,6 @@ class ShakerCommandLine(object):
 
     def shake(self, **kwargs):
         salt_shaker.shaker(**kwargs)
-
-    def do_update(self, argv):
-        self.shake(argv=argv, force=True)
 
 
 if __name__ == '__main__':
