@@ -1,0 +1,3 @@
+git@github.com:test_organisation/test1-formula.git==v1.0.1
+git@github.com:test_organisation/test2-formula.git==v2.0.1
+git@github.com:test_organisation/test3-formula.git==v3.0.1

@@ -3,14 +3,15 @@ from setuptools import setup
 setup(
     name='salt-shaker',
     version='0.1.2',
-    packages=['shaker'],
+    packages=['shaker',
+              'shaker.libs'],
     url='http://github.com/ministryofjustice/salt_shaker',
     license='',
     author='MoJ DS Infrastucture Team',
     author_email='webops@digital.justice.gov.uk',
     description='',
     install_requires=[
-        'requests',
+        'requests[security]',
         'PyYAML',
         'pygit2 >= 0.21.4',
     ],
