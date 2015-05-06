@@ -65,6 +65,7 @@ class TestShakerMetadata(TestCase):
                 {
                  'source': 'git@github.com:test_organisation/test1-formula.git',
                  'constraint': '==v1.0.1',
+                 'sourced_constraints': [],
                  'organisation': 'test_organisation',
                  'name': 'test1-formula'
                  },
@@ -72,6 +73,7 @@ class TestShakerMetadata(TestCase):
                 {
                  'source': 'git@github.com:test_organisation/test2-formula.git',
                  'constraint': '==v2.0.1',
+                 'sourced_constraints': [],
                  'organisation': 'test_organisation',
                  'name': 'test2-formula'
                  }
@@ -81,18 +83,21 @@ class TestShakerMetadata(TestCase):
         'test_organisation/test1-formula': {
             'source': 'git@github.com:test_organisation/test1-formula.git',
             'constraint': '==v1.0.1',
+            'sourced_constraints': [],
             'organisation': 'test_organisation',
             'name': 'test1-formula'
         },
         'test_organisation/test2-formula': {
             'source': 'git@github.com:test_organisation/test2-formula.git',
             'constraint': '==v2.0.1',
+            'sourced_constraints': [],
             'organisation': 'test_organisation',
             'name': 'test2-formula'
         },
         'test_organisation/test3-formula': {
             'source': 'git@github.com:test_organisation/test3-formula.git',
             'constraint': '==v3.0.1',
+            'sourced_constraints': [],
             'organisation': 'test_organisation',
             'name': 'test3-formula'
         }
@@ -101,12 +106,30 @@ class TestShakerMetadata(TestCase):
         'test_organisation/test1-formula': {
             'source': 'git@github.com:test_organisation/test1-formula.git',
             'constraint': '==v1.0.1',
+            'sourced_constraints': [],
             'organisation': 'test_organisation',
             'name': 'test1-formula'
         },
         'test_organisation/test2-formula': {
             'source': 'git@github.com:test_organisation/test2-formula.git',
             'constraint': '==v2.0.1',
+            'sourced_constraints': [],
+            'organisation': 'test_organisation',
+            'name': 'test2-formula'
+        },
+    }
+    _sample_sourced_dependencies_root_only = {
+        'test_organisation/test1-formula': {
+            'source': 'git@github.com:test_organisation/test1-formula.git',
+            'constraint': '==v1.0.1',
+            'sourced_constraints': ['==v1.0.1'],
+            'organisation': 'test_organisation',
+            'name': 'test1-formula'
+        },
+        'test_organisation/test2-formula': {
+            'source': 'git@github.com:test_organisation/test2-formula.git',
+            'constraint': '==v2.0.1',
+            'sourced_constraints': ['==v2.0.1'],
             'organisation': 'test_organisation',
             'name': 'test2-formula'
         },
@@ -269,6 +292,7 @@ class TestShakerMetadata(TestCase):
                            {
                                 'source': 'git@github.com:test_organisation/some-formula.git',
                                 'constraint': '==v1.0',
+                                'sourced_constraints': [],
                                 'organisation': 'test_organisation',
                                 'name': 'some-formula'
                             },
@@ -276,6 +300,7 @@ class TestShakerMetadata(TestCase):
                            {
                                 'source': 'git@github.com:test_organisation/another-formula.git',
                                 'constraint': '>=v2.0',
+                                'sourced_constraints': [],
                                 'organisation': 'test_organisation',
                                 'name': 'another-formula'
                             }
@@ -284,12 +309,14 @@ class TestShakerMetadata(TestCase):
                          {
                           'source': 'git@github.com:test_organisation/some-formula.git',
                           'constraint': '==v1.0',
+                          'sourced_constraints': ['==v1.0'],
                           'organisation': 'test_organisation',
                           'name': 'some-formula'
                          },
                          {
                           'source': 'git@github.com:test_organisation/another-formula.git',
                           'constraint': '>=v2.0',
+                          'sourced_constraints': ['==v2.0'],
                           'organisation': 'test_organisation',
                           'name': 'another-formula'
                          },
@@ -323,6 +350,7 @@ class TestShakerMetadata(TestCase):
                            {
                                 'source': 'git@github.com:test_organisation/some-formula.git',
                                 'constraint': '==v1.0',
+                                'sourced_constraints': [],
                                 'organisation': 'test_organisation',
                                 'name': 'some-formula'
                             },
@@ -330,6 +358,7 @@ class TestShakerMetadata(TestCase):
                            {
                                 'source': 'git@github.com:test_organisation/another-formula.git',
                                 'constraint': '>=v2.0',
+                                'sourced_constraints': [],
                                 'organisation': 'test_organisation',
                                 'name': 'another-formula'
                             }
@@ -357,6 +386,8 @@ class TestShakerMetadata(TestCase):
             "git@github.com:test_organisation/test2-formula.git==v2.0.1\n"
             )
         
+        expected_result = self._sample_sourced_dependencies_root_only.copy()
+        
         mock_fetch_remote_file.return_value = sample_raw_requirements
         org_name = "test-organisation"
         formula_name = "test1-formula"
@@ -365,10 +396,10 @@ class TestShakerMetadata(TestCase):
         testobj = ShakerMetadata()
         data = testobj._fetch_remote_requirements(org_name, formula_name, constraint)
         self.assertEqual(data,
-                         self._sample_dependencies_root_only,
+                         expected_result,
                          ("Dependency data mismatch:\nActual:%s\nExpected:%s\n\n"
                           % (data,
-                             self._sample_dependencies_root_only)))
+                            expected_result)))
         
 
     @patch("shaker.shaker_metadata.ShakerMetadata._fetch_dependencies")
@@ -384,6 +415,7 @@ class TestShakerMetadata(TestCase):
             'test_organisation/test1-formula': {
                 'source': 'git@github.com:test_organisation/test1-formula.git',
                 'constraint': '==v1.0.1',
+                'sourced_constraints': ['==v1.0.1'],
                 'organisation': 'test_organisation',
                 'name': 'test1-formula'
             }
@@ -392,6 +424,7 @@ class TestShakerMetadata(TestCase):
             'test_organisation/testa-formula': {
                 'source': 'git@github.com:test_organisation/testa-formula.git',
                 'constraint': '==v1.0.1',
+                'sourced_constraints': ['==v1.0.1'],
                 'organisation': 'test_organisation',
                 'name': 'testa-formula'
             }
@@ -457,8 +490,19 @@ class TestShakerMetadata(TestCase):
                             )
                          )
 
-    def test_fetch_dependencies(self):
+    def test_fetch_dependencies_empty(self):
         self.assertTrue(False, "TODO")
+        
+    def test_fetch_dependencies_append(self):
+        self.assertTrue(False, "TODO")
+        
+    def test_fetch_dependencies_exists(self):
+        """
+        TestShakerMetadata::test_fetch_dependencies_exists: Don't fetch dependencies if we've already sourced them
+        """
+        
+        self.assertTrue(False, "TODO")
+        
 
     @patch("shaker.shaker_metadata.ShakerMetadata.load_local_metadata")
     def test_load_local_requirements(self,

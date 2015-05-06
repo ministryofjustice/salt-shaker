@@ -106,6 +106,7 @@ def get_tags(org_name, formula_name):
     tags_url = ('https://api.github.com/repos/%s/%s/tags'
                 % (org_name, formula_name))
     tag_versions = []
+    tags_data = {}
     tags_json = requests.get(tags_url,
                              auth=(github_token, 'x-oauth-basic'))
     # Check for successful access and any credential problems

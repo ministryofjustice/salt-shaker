@@ -91,12 +91,12 @@ class Shaker(object):
 
 def setup_logging(level):
     # Initialise the default app logging
-    logging.basicConfig()
     logger.Logger('salt-shaker')
     logger.Logger().setLevel(level)
     logging.getLogger('shaker.helpers.github').setLevel(level)
     logging.getLogger('shaker.helpers.metadata').setLevel(level)
-    
+
+
 def shaker(root_formula=None,
            root_dir='.',
            root_constraint=None,
@@ -110,6 +110,9 @@ def shaker(root_formula=None,
         setup_logging(logging.DEBUG)
     elif (verbose):
         setup_logging(logging.INFO)
+    else:
+        setup_logging(logging.WARNING)
+
     if not os.path.exists(root_dir):
         os.makedirs(root_dir, 0755)
     shaker_instance = Shaker(root_dir=root_dir)
