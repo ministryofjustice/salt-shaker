@@ -17,13 +17,14 @@ from errors import ConstraintResolutionException
 const_re = re.compile('([=><]+)\s*(.*)')
 tag_re = re.compile('v[0-9]+\.[0-9]+\.[0-9]+')
 
+
 def parse_github_url(url):
     """
     Parse a github url og the form
     git@github.com:test_organisation/test3-formula.git==v3.0.2
     with or witgout constraint and return a
     dictionary of information about it
-    
+
     Args:
         url(string): The github url to parse
 
@@ -47,10 +48,10 @@ def parse_github_url(url):
     try:
         have_constraint = url.split('.git')[1] != ''
     except IndexError as e:
-        msg = ("github::parse_github_url: Could not split url '%s'"
-               % (url))
+        msg = ("github::parse_github_url: Could not split url '%s', '%s'"
+               % (url, e))
         raise IndexError(msg)
-    
+
     if have_constraint:
         result = parse("%s{organisation}/{name}.git{constraint}"
                        % (github_root),
@@ -87,17 +88,15 @@ def get_tags(org_name, formula_name):
             else:
                 rettag = map(int, tag.split('.'))
 
-
             logging.getLogger(__name__).debug("helpers.github::get_tags: "
-                                             "Converted tag %s to %s"
-                                             % (tag, rettag))
+                                              "Converted tag %s to %s"
+                                              % (tag, rettag))
             return rettag
         except ValueError:
             logging.getLogger(__name__).warn("helpers.github::get_tags: "
                                              "Invalid tag %s'"
                                              % (tag))
             return []
-
 
     github_token = get_valid_github_token()
     if not github_token:
@@ -130,15 +129,28 @@ def get_tags(org_name, formula_name):
 
 
 def resolve_constraint_to_object(org_name, formula_name, constraint):
-    """ 
+    """
     For a given formula, take the constraint and compare it to 
     the repositories available tags. Then try to find a tag that
-    best resolves within the constraint
+    best resolves within the constraint. 
+
+    If we can get resolutions, return the json data object associated 
+    with the tag. If not, then raise a ConstraintResolutionException
+
+    Args:
+        org_name(string): The organisation name of the formula
+        formula_name(string): The formula name
+        constraint(string): The constraint to be applied, in the form
+            <comparator><tag>. eg, '==v1.0.1', '>=2.0.1'
+
+    Returns:
+        dictionary: Json data from github associated with the resolved tag
+        ConstraintResolutionException: If no resolutions was possible
     """
     logging.getLogger('helpers.github').debug("resolve_constraint_to_tag(%s, %s, %s)"
                                               % (org_name, formula_name, constraint))
     wanted_tag, tag_versions, tags_data = get_tags(org_name, formula_name)
-    
+
     if not constraint or (constraint == ''):
         logging.getLogger('helpers.github').debug("No constraint specified, returning '%s'"
                                                           % (wanted_tag))
@@ -153,7 +165,7 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
     parsed_comparator = parsed_constraint['comparator']
     parsed_tag = parsed_constraint['tag']
     parsed_version = parsed_constraint['version']
-    
+
     # See if we can pick up a version
     if tag_versions and parsed_version:
         if parsed_comparator == '==':
@@ -211,8 +223,9 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
         raise ConstraintResolutionException(msg)
     raise ConstraintResolutionException('Constraint {} cannot be satisfied for {}/{}'.format(
                                                                                              constraint, org_name, formula_name))
-    
+
     return None
+
 
 def get_valid_github_token(online_validation_enabled = False):
     """
@@ -226,17 +239,19 @@ def get_valid_github_token(online_validation_enabled = False):
         github_token (string): The valid github token, None if invalid
     """
     github_token = None
-    
+
     # A simple check for the right environment variable
-    if not "GITHUB_TOKEN" in os.environ:
-        logging.error("No github token found. Please set your GITHUB_TOKEN environment variable")
+    if "GITHUB_TOKEN" not in os.environ:
+        logging.error("No github token found. "
+                      "Please set your GITHUB_TOKEN environment variable")
     else:
         # Test an oauth call to the api, make sure the credentials are
         # valid and we're not locked out
         if online_validation_enabled:
             url = "https://api.github.com"
             response = requests.get(url,
-                             auth=(os.environ["GITHUB_TOKEN"], 'x-oauth-basic'))
+                                    auth=(os.environ["GITHUB_TOKEN"],
+                                          'x-oauth-basic'))
 
             # Validate the response against expected status codes
             # Set the return value to the token if we have success
@@ -251,20 +266,21 @@ def get_valid_github_token(online_validation_enabled = False):
 
     return github_token
 
+
 def validate_github_access(response):
     """
     Validate the github api's response for known credential problems
-    
+
     Checked responses are
-    
+
         * Authenticating with invalid credentials will return 401 Unauthorized:
-    
-        HTTP/1.1 401 Unauthorized 
-        { 
-            "message": "Bad credentials", 
+
+        HTTP/1.1 401 Unauthorized
+        {
+            "message": "Bad credentials",
             "documentation_url": "https://developer.github.com/v3"
         }
-        
+
         * Forbidden
         HTTP/1.1 403 Forbidden
         {
@@ -274,30 +290,31 @@ def validate_github_access(response):
 
     Args:
         response (requests.models.Response): The Response from the github server
-        
+
     Returns:
         valid_credentials (bool): True if access was successful, false otherwise
 
     """
-    
+
     # Assume invalid credentials unless proved otherwise
-    
+
     if (type(response) == requests.models.Response):
-        
+
         # Check the status codes for success
         if response.status_code == 200:
             logging.info("Github access checked ok")
             return True
         else:
-             # Set a default response message, use the real one if we
-             # find it in the response 
+            # Set a default response message, use the real one if we
+            # find it in the response
             response_message = "No response found"
             try:
                 # Access the responses body as json
                 response_json = json.loads(response.text)
-                if "message" in response_json: 
+                if "message" in response_json:
                     response_message = response_json["message"]
-                logging.debug("Github credentials test got response: %s" % response_json)
+                logging.debug("Github credentials test got response: %s"
+                              % response_json)
             except:
                 # Just ignore if we can'l load json, its not essential here
                 if (response.status_code == 401) and ("Bad credentials" in response_message):
@@ -316,6 +333,7 @@ def validate_github_access(response):
         logging.error("Invalid response: %s" % response)
 
     return False
+
 
 def open_repository(url,
                     target_directory):
@@ -339,16 +357,17 @@ def open_repository(url,
     # Otherwise, clone the remote repo into the new directory
     if os.path.isdir(target_directory):
         logging.getLogger(__name__).info("open_repository: "
-                     "Opening url '%s' with existing local repository '%s'"
-                     % (url, target_directory))
+                                         "Opening url '%s' "
+                                         "with existing local repository '%s'"
+                                         % (url, target_directory))
         repo = pygit2.Repository(target_directory)
     else:
         repo = pygit2.clone_repository(url,
                                        target_directory,
                                        credentials=credentials)
         logging.getLogger(__name__).info(":open_repository: "
-                     "Cloning url '%s' into local repository '%s'"
-                     % (url, target_directory))
+                                         "Cloning url '%s' into local repository '%s'"
+                                         % (url, target_directory))
     origin = filter(lambda x: x.name == 'origin', repo.remotes)
     if not origin:
         repo.create_remote('origin', url)
@@ -390,7 +409,7 @@ def install_source(target_source,
     oid = pygit2.Oid(hex=target_sha)
     target_repository.checkout_tree(target_repository[oid].tree)
     logging.getLogger(__name__).info("install_source: Checking out sha '%s' into '%s"
-                  % (target_sha, target_path))
+                                     % (target_sha, target_path))
     # The line below is *NOT* just setting a value.
     # Pygit2 internally resets the head of the filesystem to the OID we set.
     #
@@ -419,7 +438,7 @@ def resolve_tag_to_sha(target_source,
     it is a branch then make sure it is the tip of that branch (i.e. this
     will do a git fetch on the repo)
     """
-    
+
     # Check for a a tag with the targets version
     # If we don't have a v1.0 style tag then try as a branch head
     # If none of the above, try it as a straight sha
@@ -428,13 +447,13 @@ def resolve_tag_to_sha(target_source,
     target_sha = target_source.get('sha', None)
     target_path = os.path.join(target_directory,
                                target_name)
-    
+
     repository = open_repository(target_url, target_path)
-    
+
     origin = get_origin_for_remote(repository)
     if not origin:
         raise RuntimeError("Unable to find origin for repo.")
-    
+
     url = urlparse.urlparse(origin.url)
     username = url.netloc.split('@')[0] if '@' in url.netloc else 'git'
     origin.credentials = pygit2.credentials.KeypairFromAgent(username)
@@ -475,11 +494,12 @@ def resolve_tag_to_sha(target_source,
         except KeyError:
             # Maybe we just need to fetch first.
             pass
-        
+
         logging.getLogger(__name__).debug("resolve_tag_to_sha: "
                                                       "Cannot find version '%s' in refs '%s'"
                                                       % (target_version, refs))
     return None
+
 
 def get_repository_info(repository):
     repo = pygit2.Repository(repository)
@@ -531,8 +551,9 @@ def get_repository_info(repository):
         else:
             # ignore blobs and trees
             pass
- 
+
     return(json.dumps(objects, indent=2))
+
 
 def get_origin_for_remote(repository):
     """
