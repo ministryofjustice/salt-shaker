@@ -72,21 +72,29 @@ class Shaker(object):
         self._root_dir = root_dir
         self._shaker_metadata = ShakerMetadata(root_dir)
 
-    def update_requirements(self, overwrite=False):
-        if overwrite:
-            ignore_root_requirements=True,
-            ignore_dependency_requirements=False
-        else:
-            ignore_root_requirements=False,
-            ignore_dependency_requirements=False
-        self._shaker_metadata.update_dependencies(ignore_root_requirements,
-                                                  ignore_dependency_requirements)
+    def load_requirements(self):
+        logger.Logger().info("Shaker: Loading the current formula requirements...")
         self._shaker_remote = ShakerRemote(self._shaker_metadata.dependencies)
         self._shaker_remote.update_dependencies()
 
-    def install_requirements(self, overwrite=False):
-        self._shaker_remote.install_dependencies()
-        self._shaker_remote.write_requirements(overwrite=overwrite)
+    def update_requirements(self):
+        logger.Logger().info("Shaker: Updating the formula requirements...")
+
+        self._shaker_metadata.update_dependencies()
+        self._shaker_remote = ShakerRemote(self._shaker_metadata.dependencies)
+        self._shaker_remote.update_dependencies()
+
+    def install_requirements(self, simulate=False):
+        if not simulate:
+            logger.Logger().info("Shaker: Installing dependencies...")
+            self._shaker_remote.install_dependencies(overwrite=True)
+            logger.Logger().info("Shaker: Writing requirements file...")
+            self._shaker_remote.write_requirements(overwrite=True)
+        else:
+            requirements = '\n'.join(self._shaker_remote._get_requirements())
+            logger.Logger().info("Shaker: Simulation mode enabled, "
+                                 "no changes will be made...\n%s\n\n"
+                                 % (requirements))
 
 
 def setup_logging(level):
@@ -97,12 +105,11 @@ def setup_logging(level):
     logging.getLogger('shaker.helpers.metadata').setLevel(level)
 
 
-def shaker(root_formula=None,
-           root_dir='.',
-           root_constraint=None,
+def shaker(root_dir='.',
            debug=False,
            verbose=False,
-           overwrite=False):
+           overwrite=False,
+           simulate=False):
     """
     utility task to initiate Shaker in the most typical way
     """
@@ -116,6 +123,18 @@ def shaker(root_formula=None,
     if not os.path.exists(root_dir):
         os.makedirs(root_dir, 0755)
     shaker_instance = Shaker(root_dir=root_dir)
-    shaker_instance.update_requirements(overwrite=overwrite)
-    shaker_instance.install_requirements(overwrite=overwrite)
+    
+    if overwrite:
+        logger.Logger().info("Shaker: Updating..."
+                                         "All dependencies will be "
+                                         "re-calculated from the metadata")
+        shaker_instance.update_requirements()
+    else:
+        logger.Logger().info("Shaker: Refreshing..."
+                                         "Dependencies will be refreshed "
+                                         "from the stored formula requirements")
+        shaker_instance.load_requirements()
+
+    shaker_instance.install_requirements(simulate=simulate)
+        
 

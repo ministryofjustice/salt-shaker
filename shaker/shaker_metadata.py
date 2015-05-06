@@ -18,7 +18,7 @@ class ShakerMetadata:
     Class to hold and resolve all the information about
     a formula using it's metadata. It can parse a local
     metadata file, use this to generate a dependency list,
-    and call remotely to parse sub-dependencies
+    and call remotely to parse sub-dependencies.
 
     Attributes:
         working_directory(string): The working directory
@@ -100,7 +100,7 @@ class ShakerMetadata:
                 self.root_metadata['formula'] = root_name_key
                 self.root_metadata.update(self._parse_metadata_name(root_name_key))
             else:
-                shaker.libs.logger.Logger().info('ShakerMetadata::update_metadata: '
+                shaker.libs.logger.Logger().debug('ShakerMetadata::update_metadata: '
                                                                                'No root key name found, '
                                                                                'assuming a deploy formula')
 
@@ -134,20 +134,19 @@ class ShakerMetadata:
         # If we are, or fail to read, open up metadata
         have_local_requirements = len(self.root_requirements) > 0
         if not ignore_root_requirements and have_local_requirements:
-            shaker.libs.logger.Logger().info('ShakerMetadata::update_dependencies: '
+            shaker.libs.logger.Logger().debug('ShakerMetadata::update_dependencies: '
                                          'Updating from requirements')
             self.dependencies = self.root_requirements
             self._fetch_dependencies(self.dependencies,
                                      ignore_dependency_requirements)
         else:
-            shaker.libs.logger.Logger().info('ShakerMetadata::update_dependencies: '
+            shaker.libs.logger.Logger().debug('ShakerMetadata::update_dependencies: '
                                          'Updating from metadata')
             # Add in root dependencies, always overwrite
             raw_dependencies = self.root_metadata.get('dependencies', {})
             if len(raw_dependencies) <= 0:
-                shaker.libs.logger.Logger().info("ShakerMetadata::update_dependencies: "
-                                                 "No dependencies found in metadata '%s'\n\n"
-                                                 % (self.root_metadata))
+                shaker.libs.logger.Logger().debug("ShakerMetadata::update_dependencies: "
+                                                 "No dependencies found in metadata")
             else:
                 self.dependencies = self._parse_metadata_requirements(raw_dependencies)
                 self._fetch_dependencies(self.dependencies,
@@ -170,7 +169,9 @@ class ShakerMetadata:
         """
         path = "%s/%s" % (input_directory,
                           input_filename)
-
+        shaker.libs.logger.Logger().debug('ShakerMetadata::load_local_requirements: '
+                                          'Loading %s...'
+                                          % (path))
         if not os.path.exists(path):
             shaker.libs.logger.Logger().warning('ShakerMetadata::load_local_requirements: '
                                                      'File not found %s...'
@@ -180,7 +181,7 @@ class ShakerMetadata:
             with open(path, 'r') as infile:
                 loaded_dependencies = infile.readlines()
                 if len(loaded_dependencies) > 0:
-                    self.root_requirements = self._parse_metadata_requirements(loaded_dependencies)
+                    self.dependencies = self._parse_metadata_requirements(loaded_dependencies)
                     return True
                 else:
                     shaker.libs.logger.Logger().warning("ShakerMetadata::load_local_requirements: "
@@ -385,7 +386,7 @@ class ShakerMetadata:
                 # If we've already sourced this constrained version then we're done
                 constraint = dependency_info.get('constraint', '')
                 sourced_constraints = self.dependencies.get(dependency_key).get('sourced_constraints', [])
-                shaker.libs.logger.Logger().info("ShakerMetadata::fetch_dependencies: "
+                shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
                                                           "'%s': "
                                                           "sourced constraints '%s'"
                                                           "\n\n%s\n\n"
@@ -393,7 +394,7 @@ class ShakerMetadata:
                                                              sourced_constraints,
                                                              dependency_info))
                 if constraint in sourced_constraints:
-                    shaker.libs.logger.Logger().info("ShakerMetadata::fetch_dependencies: "
+                    shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
                                                           "Already have requirements constraint, '%s' in "
                                                           "sourced constraints '%s'"
                                                           % (constraint,
@@ -401,7 +402,7 @@ class ShakerMetadata:
                     continue
                 
                 elif dependency_key == root_metadata:
-                    shaker.libs.logger.Logger().info("ShakerMetadata::fetch_dependencies: "
+                    shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
                                                        "Root key dependency found %s = %s, skipping" 
                                                        % (dependency_key, root_metadata))
                     continue
@@ -410,14 +411,14 @@ class ShakerMetadata:
                     org_name = dependency_info.get('organisation', None)
                     formula_name = dependency_info.get('name', None)
         
-                    shaker.libs.logger.Logger().info('ShakerMetadata::fetch_dependencies: '
+                    shaker.libs.logger.Logger().debug('ShakerMetadata::fetch_dependencies: '
                                                              'Processing %s' % dependency_key)
                     
                     # Try to fetch the formula requirements file, if its not found,
                     # fallback to fetching the metadata directly
                     remote_metadata = None
                     if not ignore_dependency_requirements:
-                        shaker.libs.logger.Logger().info("ShakerMetadata::fetch_dependencies: "
+                        shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
                                                      "Looking for requirements for %s:%s" 
                                                      % (dependency_key, constraint))
                         remote_requirements = self._fetch_remote_requirements(org_name,
@@ -432,7 +433,7 @@ class ShakerMetadata:
                         
 
                     if not remote_metadata:
-                        shaker.libs.logger.Logger().info("ShakerMetadata::fetch_dependencies: "
+                        shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
                                                      "Looking for metadata for %s" 
                                                      % (dependency_key))
                         remote_metadata = self._fetch_remote_metadata(org_name,
@@ -477,7 +478,7 @@ class ShakerMetadata:
         if not github_token:
             sys.exit(1)
 
-        shaker.libs.logger.Logger().info("ShakerMetadata::_fetch_remote_metadata: "
+        shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_metadata: "
                                      "Fetching remote repository "
                                      "%s/%s:%s"
                                      % (org_name,
@@ -501,7 +502,7 @@ class ShakerMetadata:
                                                       % (dependency_info))
             return data
         else:
-            shaker.libs.logger.Logger().info("ShakerMetadata::_fetch_remote_metadata: "
+            shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_metadata: "
                                      "No metadata found for "
                                      "%s/%s:%s"
                                      % (org_name,

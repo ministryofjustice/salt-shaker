@@ -38,12 +38,12 @@ class ShakerRemote:
         Update the list of targets with actual git sha
         targets from the dictionary of dependencies
         """
-        self._logger.info("ShakerRemote::update_dependencies: "
+        self._logger.debug("ShakerRemote::update_dependencies: "
                           "Updating the dependencies \n%s\n\n"
                           % (self._dependencies))
         for dependency in self._dependencies.values():
             target_sha = self._resolve_constraint_to_sha(dependency)
-            self._logger.info("ShakerRemote::update_dependencies: "
+            self._logger.debug("ShakerRemote::update_dependencies: "
                              "Found sha '%s'"
                              % (target_sha))
             if target_sha:
@@ -61,7 +61,7 @@ class ShakerRemote:
                                        self._install_directory)
             shaker.libs.github.install_source(dependency,
                                                  install_dir)
-            self._logger.info("ShakerRemote::install_dependencies: "
+            self._logger.debug("ShakerRemote::install_dependencies: "
                               "Installed '%s to directory '%s'"
                               % (dependency_name,
                                  install_dir))
@@ -94,7 +94,7 @@ class ShakerRemote:
                 requirements = self._get_requirements()
                 outfile.write('\n'.join(requirements))
                 outfile.write('\n')
-                shaker.libs.logger.Logger().info("ShakerMetadata::write_requirements: "
+                shaker.libs.logger.Logger().debug("ShakerMetadata::write_requirements: "
                                                       "Wrote file '%s'"
                                                       % (path)
                                                       )
@@ -127,11 +127,11 @@ class ShakerRemote:
                     sourcefile = os.path.join(relative_source, name)
                     targetfile = os.path.join(targetdir, name)
                     try:
-                        self.logger.info("linking {}".format(sourcefile))
+                        self.logger.debug("linking {}".format(sourcefile))
                         os.symlink(sourcefile, targetfile)
                     except OSError as e:
                         if e.errno == errno.EEXIST:  # already exist
-                            self.logger.info(
+                            self.logger.debug(
                                 "skipping to linking {} as there is a file with higher priority already there".
                                 format(sourcefile))
                         else:
