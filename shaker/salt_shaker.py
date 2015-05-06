@@ -74,7 +74,7 @@ class Shaker(object):
 
     def load_requirements(self):
         logger.Logger().info("Shaker: Loading the current formula requirements...")
-        self._shaker_remote = ShakerRemote(self._shaker_metadata.dependencies)
+        self._shaker_remote = ShakerRemote(self._shaker_metadata.local_requirements)
         self._shaker_remote.update_dependencies()
 
     def update_requirements(self):

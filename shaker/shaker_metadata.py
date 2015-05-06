@@ -65,7 +65,7 @@ class ShakerMetadata:
     working_directory = None
     metadata_filename = None
     root_metadata = {}
-    root_requirements = {}
+    local_requirements = {}
     dependencies = {}
 
     def __init__(self,
@@ -118,25 +118,25 @@ class ShakerMetadata:
             sys.exit(1)
 
     def update_dependencies(self,
-                            ignore_root_requirements=False,
+                            ignore_local_requirements=False,
                             ignore_dependency_requirements=False):
         """
         Update the dependencies from the root formula down
         through the dependency chain
         
         Args:
-            ignore_root_requirements(bool): True if we skip parsing the requirements file
+            ignore_local_requirements(bool): True if we skip parsing the requirements file
                 for the root and use metadata directly, false otherwise
             ignore_dependency_requirements(bool): True if we skip parsing the requirements file
                 for the dependencies and use their metadata directly, false otherwise
         """
         # Try to read root requirements, unless we're ignoring them
         # If we are, or fail to read, open up metadata
-        have_local_requirements = len(self.root_requirements) > 0
-        if not ignore_root_requirements and have_local_requirements:
+        have_local_requirements = len(self.local_requirements) > 0
+        if not ignore_local_requirements and have_local_requirements:
             shaker.libs.logger.Logger().debug('ShakerMetadata::update_dependencies: '
                                          'Updating from requirements')
-            self.dependencies = self.root_requirements
+            self.dependencies = self.local_requirements
             self._fetch_dependencies(self.dependencies,
                                      ignore_dependency_requirements)
         else:
@@ -181,7 +181,7 @@ class ShakerMetadata:
             with open(path, 'r') as infile:
                 loaded_dependencies = infile.readlines()
                 if len(loaded_dependencies) > 0:
-                    self.dependencies = self._parse_metadata_requirements(loaded_dependencies)
+                    self.local_requirements = self._parse_metadata_requirements(loaded_dependencies)
                     return True
                 else:
                     shaker.libs.logger.Logger().warning("ShakerMetadata::load_local_requirements: "

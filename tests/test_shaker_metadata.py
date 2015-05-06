@@ -431,12 +431,12 @@ class TestShakerMetadata(TestCase):
         }
         
         testobj = ShakerMetadata()
-        testobj.root_requirements=sample_root_requirements
+        testobj.local_requirements=sample_root_requirements
         testobj.root_metadata=sample_root_metadata
 
-        ignore_root_requirements = False
+        ignore_local_requirements = False
         ignore_dependency_requirements=False
-        testobj.update_dependencies(ignore_root_requirements,
+        testobj.update_dependencies(ignore_local_requirements,
                                     ignore_dependency_requirements)
 
         mock_fetch_dependencies.assert_called_once_with(sample_root_requirements,
@@ -470,12 +470,12 @@ class TestShakerMetadata(TestCase):
         }
         
         testobj = ShakerMetadata()
-        testobj.root_requirements={}
+        testobj.local_requirements={}
         testobj.root_metadata = self._sample_metadata_root
 
-        ignore_root_requirements = False
+        ignore_local_requirements = False
         ignore_dependency_requirements=False
-        testobj.update_dependencies(ignore_root_requirements,
+        testobj.update_dependencies(ignore_local_requirements,
                                     ignore_dependency_requirements)
 
         mock_fetch_dependencies.assert_called_once_with(self._sample_dependencies_root_only,
@@ -514,10 +514,10 @@ class TestShakerMetadata(TestCase):
         mock_load_local_metadata.return_value = self._sample_requirements_file
         testobj = ShakerMetadata()
         testobj.load_local_requirements('./tests/files', 'requirements.txt')
-        self.assertEqual(testobj.root_requirements,
+        self.assertEqual(testobj.dependencies,
                          self._sample_dependencies,
                          "Loaded dependencies mismatch \n\n"
                          "%s\n\n"
                          "%s\n\n"
-                         % (testobj.root_requirements,
+                         % (testobj.local_requirements,
                             self._sample_dependencies))
