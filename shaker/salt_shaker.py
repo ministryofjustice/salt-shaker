@@ -1,16 +1,5 @@
 import logging
 import os
-import sys
-import re
-import time
-import shutil
-import urlparse
-import errno
-import glob
-from textwrap import dedent
-
-import pygit2
-import yaml
 
 from shaker.libs import logger
 from shaker_metadata import ShakerMetadata
@@ -82,7 +71,7 @@ class Shaker(object):
 
     def update_requirements(self):
         """
-        Update the requirements from metadata entries, overriding the 
+        Update the requirements from metadata entries, overriding the
         current formula requirements
         """
         logger.Logger().info("Shaker: Updating the formula requirements...")
@@ -133,18 +122,16 @@ def shaker(root_dir='.',
     if not os.path.exists(root_dir):
         os.makedirs(root_dir, 0755)
     shaker_instance = Shaker(root_dir=root_dir)
-    
+
     if overwrite:
         logger.Logger().info("Shaker: Updating..."
-                                         "All dependencies will be "
-                                         "re-calculated from the metadata")
+                             "All dependencies will be "
+                             "re-calculated from the metadata")
         shaker_instance.update_requirements()
     else:
         logger.Logger().info("Shaker: Refreshing..."
-                                         "Dependencies will be refreshed "
-                                         "from the stored formula requirements")
+                             "Dependencies will be refreshed "
+                             "from the stored formula requirements")
         shaker_instance.load_requirements()
 
     shaker_instance.install_requirements(simulate=simulate)
-        
-

@@ -2,14 +2,11 @@ import os
 import sys
 import re
 
-from parse import parse
 import requests
 import yaml
 
 from shaker.libs.errors import ShakerConfigException
 import shaker.libs.github
-import shaker.libs.logger
-import shaker.libs.logger
 import shaker.libs.metadata
 
 
@@ -25,7 +22,7 @@ class ShakerMetadata:
              to look for metadata files and to write output
         metadata_filename(string): The filename that stores
             our root metadata
-        root_metadata(dictionary): Dictionary of information 
+        root_metadata(dictionary): Dictionary of information
             on the root formula, eg
             {
                 formula: 'test_organisation/my-formula':
@@ -41,7 +38,7 @@ class ShakerMetadata:
                     }
                 }
             }
-            dependencies(dictionary): Dictionary of organisation/name 
+            dependencies(dictionary): Dictionary of organisation/name
                 keys to a dictionary of properties for the dependency,
                 'source', the url source for the dependency
                 'versions', the versions of the dependency available
@@ -70,8 +67,7 @@ class ShakerMetadata:
 
     def __init__(self,
                  working_directory='.',
-                 metadata_filename='metadata.yml',
-                 requirements_filename='requirements.yml'):
+                 metadata_filename='metadata.yml'):
         """
         Initialise the instance from a metadata config file
 
@@ -92,7 +88,7 @@ class ShakerMetadata:
         """
         # Load in the raw metadata
         raw_data = self._fetch_local_metadata(self.working_directory,
-                                          self.metadata_filename)
+                                              self.metadata_filename)
         # Process the raw data into our data structure
         if raw_data:
             root_name_key = raw_data.get('formula', None)
@@ -101,8 +97,8 @@ class ShakerMetadata:
                 self.root_metadata.update(self._parse_metadata_name(root_name_key))
             else:
                 shaker.libs.logger.Logger().debug('ShakerMetadata::update_metadata: '
-                                                                               'No root key name found, '
-                                                                               'assuming a deploy formula')
+                                                  'No root key name found, '
+                                                  'assuming a deploy formula')
 
             root_dependencies = raw_data.get('dependencies', None)
             if (root_dependencies):
@@ -111,10 +107,10 @@ class ShakerMetadata:
                 self.root_metadata['dependencies'] = self._parse_metadata_requirements(root_dependencies)
             else:
                 shaker.libs.logger.Logger().warning('ShakerMetadata::update_metadata: '
-                                                         'No root dependencies found')
+                                                    'No root dependencies found')
         else:
             shaker.libs.logger.Logger().error('ShakerMetadata::update_metadata: '
-                                                   ' Error loading metadata.')
+                                              ' Error loading metadata.')
             sys.exit(1)
 
     def update_dependencies(self,
@@ -123,7 +119,7 @@ class ShakerMetadata:
         """
         Update the dependencies from the root formula down
         through the dependency chain
-        
+
         Args:
             ignore_local_requirements(bool): True if we skip parsing the requirements file
                 for the root and use metadata directly, false otherwise
@@ -135,28 +131,28 @@ class ShakerMetadata:
         have_local_requirements = len(self.local_requirements) > 0
         if not ignore_local_requirements and have_local_requirements:
             shaker.libs.logger.Logger().debug('ShakerMetadata::update_dependencies: '
-                                         'Updating from requirements')
+                                              'Updating from requirements')
             self.dependencies = self.local_requirements
             self._fetch_dependencies(self.dependencies,
                                      ignore_dependency_requirements)
         else:
             shaker.libs.logger.Logger().debug('ShakerMetadata::update_dependencies: '
-                                         'Updating from metadata')
+                                              'Updating from metadata')
             # Add in root dependencies, always overwrite
             raw_dependencies = self.root_metadata.get('dependencies', {})
             if len(raw_dependencies) <= 0:
                 shaker.libs.logger.Logger().debug("ShakerMetadata::update_dependencies: "
-                                                 "No dependencies found in metadata")
+                                                  "No dependencies found in metadata")
             else:
                 self.dependencies = self._parse_metadata_requirements(raw_dependencies)
                 self._fetch_dependencies(self.dependencies,
                                          ignore_dependency_requirements)
 
     def load_local_requirements(self,
-                                input_directory = '.',
+                                input_directory='.',
                                 input_filename='formula-requirements.txt'):
         """
-        Load a dependency list from a file path, parsing it into our 
+        Load a dependency list from a file path, parsing it into our
         data structures. Expects a list inside
         the file of the form
 
@@ -174,8 +170,8 @@ class ShakerMetadata:
                                           % (path))
         if not os.path.exists(path):
             shaker.libs.logger.Logger().warning('ShakerMetadata::load_local_requirements: '
-                                                     'File not found %s...'
-                                                     % (path))
+                                                'File not found %s...'
+                                                % (path))
             return False
         else:
             with open(path, 'r') as infile:
@@ -185,24 +181,23 @@ class ShakerMetadata:
                     return True
                 else:
                     shaker.libs.logger.Logger().warning("ShakerMetadata::load_local_requirements: "
-                                                             "File '%s' empty %s"
-                                                             % (path,
-                                                                loaded_dependencies))
+                                                        "File '%s' empty %s"
+                                                        % (path,
+                                                           loaded_dependencies))
                     return False
 
         return True
 
-    
     def _fetch_local_metadata(self,
-                          directory,
-                          filename):
+                              directory,
+                              filename):
         """
         Fetch data from a local file
-        
+
         Args:
             directory(string): The directory of the file
             filename(string): The filename of the file
-        
+
         Returns:
             dictionary: The data found, None if could not be parsed
         """
@@ -215,21 +210,21 @@ class ShakerMetadata:
                     return data
                 except yaml.YAMLError as e:
                     msg = ('ShakerMetadata::_fetch_local_metadata: '
-                                                           'Error in yaml format for file '
-                                                           '%s: %s'
-                                                           % (md_file,
-                                                              e.description()))
+                           'Error in yaml format for file '
+                           '%s: %s'
+                           % (md_file,
+                              e.description()))
                     raise yaml.YAMLError(msg)
         else:
             msg = ('ShakerMetadata::_fetch_local_metadata: '
-                                                   'Error loading file, '
-                                                   'file does not exist. '
-                                                   '%s'
-                                                   % (md_file))
+                   'Error loading file, '
+                   'file does not exist. '
+                   '%s'
+                   % (md_file))
             raise IOError(msg)
 
         return None
-        
+
     def _parse_metadata_name(self,
                              metadata_name):
         """
@@ -267,7 +262,7 @@ class ShakerMetadata:
                 root_name_entry = {
                     'organisation': root_org,
                     'name': root_name
-                    }
+                }
                 return root_name_entry
 
         return None
@@ -310,34 +305,32 @@ class ShakerMetadata:
             # From the simplified format. Pass this to th github url parser
             # to ensure we are generating the same strucutres for both cases
             metadata_info = {}
-            if (".git" in metadata_dependency 
-                or "git@" in metadata_dependency):
+            if (".git" in metadata_dependency or "git@" in metadata_dependency):
                 shaker.libs.logger.Logger().debug("ShakerMetadata::_parse_metadata_requirements: "
-                                                       "Parsing '%s' as raw github format\n"
-                                                       % (metadata_dependency))
+                                                  "Parsing '%s' as raw github format\n"
+                                                  % (metadata_dependency))
                 metadata_info = shaker.libs.github.parse_github_url(metadata_dependency)
             else:
                 parsed_entry = re.search('(.*)([=><]{2})\s*(.*)', metadata_dependency)
                 if parsed_entry and len(parsed_entry.groups()) >= 3:
-                    parsed_formula  = parsed_entry.group(1)
-                    parsed_comparator  = parsed_entry.group(2)
-                    parsed_version  = parsed_entry.group(3)
-                    
+                    parsed_formula = parsed_entry.group(1)
+                    parsed_comparator = parsed_entry.group(2)
+                    parsed_version = parsed_entry.group(3)
+
                     github_url = "git@github.com:{0}.git{1}{2}".format(parsed_formula,
-                                                                   parsed_comparator,
-                                                                   parsed_version)
+                                                                       parsed_comparator,
+                                                                       parsed_version)
                     metadata_info = shaker.libs.github.parse_github_url(github_url)
                     shaker.libs.logger.Logger().debug("ShakerMetadata::_parse_metadata_requirements: "
-                                                       "Parsing '%s' as simple format with constraint"
-                                                       % (metadata_dependency))
+                                                      "Parsing '%s' as simple format with constraint"
+                                                      % (metadata_dependency))
 
                 else:
                     github_url = "git@github.com:%s.git" % (metadata_dependency)
                     metadata_info = shaker.libs.github.parse_github_url(github_url)
                     shaker.libs.logger.Logger().debug("ShakerMetadata::_parse_metadata_requirements: "
                                                       "Parsing '%s' as simple format without constraint\n"
-                                                       % (metadata_dependency))
-                    
+                                                      % (metadata_dependency))
 
             if metadata_info:
                 dependency_entry = {
@@ -346,20 +339,20 @@ class ShakerMetadata:
                     'sourced_constraints': [],
                     'organisation': metadata_info.get('organisation'),
                     'name': metadata_info.get('name')
-                    }
+                }
                 dependency_key = "%s/%s" % (dependency_entry.get('organisation'),
                                             dependency_entry.get('name'))
                 dependencies[dependency_key] = dependency_entry
 
                 shaker.libs.logger.Logger().debug("ShakerMetadata::_parse_metadata_requirements: "
-                                                       "Parsed entry %s %s\n from metadata: %s"
-                                                       % (metadata_dependency,
-                                                          dependency_entry,
-                                                          metadata_info))
+                                                  "Parsed entry %s %s\n from metadata: %s"
+                                                  % (metadata_dependency,
+                                                     dependency_entry,
+                                                     metadata_info))
             else:
                 shaker.libs.logger.Logger().debug("ShakerMetadata::_parse_metadata_requirements: "
-                              "No data found for entry %s"
-                              % (metadata_info.get('source', None)))
+                                                  "No data found for entry %s"
+                                                  % (metadata_info.get('source', None)))
         return dependencies
 
     def _fetch_dependencies(self,
@@ -373,77 +366,76 @@ class ShakerMetadata:
             base_dependencies(dictionary):
                 A metadata dictionary to use as the base of our
                 dependency loading
-            ignore_dependency_requirements(bool): 
+            ignore_dependency_requirements(bool):
                 True if we want to skip parsing a remote requirements file
-                and go straight to metadata, False otherwise 
+                and go straight to metadata, False otherwise
         """
         shaker.libs.logger.Logger().debug('ShakerMetadata::fetch_dependencies: '
-                                                         'Fetching for base dependencies\n %s'
-                                                         % base_dependencies)
+                                          'Fetching for base dependencies\n %s'
+                                          % base_dependencies)
         root_metadata = self.root_metadata.get('formula', None)
         for dependency_key, dependency_info in base_dependencies.items():
-            
+
                 # If we've already sourced this constrained version then we're done
                 constraint = dependency_info.get('constraint', '')
                 sourced_constraints = self.dependencies.get(dependency_key).get('sourced_constraints', [])
                 shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
-                                                          "'%s': "
-                                                          "sourced constraints '%s'"
-                                                          "\n\n%s\n\n"
-                                                          % (dependency_key,
-                                                             sourced_constraints,
-                                                             dependency_info))
+                                                  "'%s': "
+                                                  "sourced constraints '%s'"
+                                                  "\n\n%s\n\n"
+                                                  % (dependency_key,
+                                                     sourced_constraints,
+                                                     dependency_info))
                 if constraint in sourced_constraints:
                     shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
-                                                          "Already have requirements constraint, '%s' in "
-                                                          "sourced constraints '%s'"
-                                                          % (constraint,
-                                                             sourced_constraints))
+                                                      "Already have requirements constraint, '%s' in "
+                                                      "sourced constraints '%s'"
+                                                      % (constraint,
+                                                         sourced_constraints))
                     continue
-                
+
                 elif dependency_key == root_metadata:
                     shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
-                                                       "Root key dependency found %s = %s, skipping" 
-                                                       % (dependency_key, root_metadata))
+                                                      "Root key dependency found %s = %s, skipping"
+                                                      % (dependency_key, root_metadata))
                     continue
 
                 else:
                     org_name = dependency_info.get('organisation', None)
                     formula_name = dependency_info.get('name', None)
-        
+
                     shaker.libs.logger.Logger().debug('ShakerMetadata::fetch_dependencies: '
-                                                             'Processing %s' % dependency_key)
-                    
+                                                      'Processing %s' % dependency_key)
+
                     # Try to fetch the formula requirements file, if its not found,
                     # fallback to fetching the metadata directly
                     remote_metadata = None
                     if not ignore_dependency_requirements:
                         shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
-                                                     "Looking for requirements for %s:%s" 
-                                                     % (dependency_key, constraint))
+                                                          "Looking for requirements for %s:%s"
+                                                          % (dependency_key, constraint))
                         remote_requirements = self._fetch_remote_requirements(org_name,
                                                                               formula_name,
                                                                               constraint=constraint)
-                            
+
                         if remote_requirements:
                             shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
-                                                              "Found requirements %s" 
+                                                              "Found requirements %s"
                                                               % (remote_requirements))
                             remote_metadata = {"dependencies": remote_requirements}
-                        
 
                     if not remote_metadata:
                         shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
-                                                     "Looking for metadata for %s" 
-                                                     % (dependency_key))
+                                                          "Looking for metadata for %s"
+                                                          % (dependency_key))
                         remote_metadata = self._fetch_remote_metadata(org_name,
                                                                       formula_name,
                                                                       constraint=constraint)
-                        
-                    #Need to ensure we don't try to re-get this one
+
+                    # Need to ensure we don't try to re-get this one
                     constraint = dependency_info.get('constraint', '')
                     self._add_dependency_sourced(dependency_key, constraint)
-                        
+
                     # we've tried all our methods of sourcing this requirement, so update the
                     # sourced requirements
                     if remote_metadata:
@@ -452,9 +444,8 @@ class ShakerMetadata:
 
                     else:
                         shaker.libs.logger.Logger().debug("ShakerMetadata::fetch_dependencies: "
-                                                      "No requirements or metadata found for %s, skipping" 
-                                                      % (dependency_key))
-
+                                                          "No requirements or metadata found for %s, skipping"
+                                                          % (dependency_key))
 
     def _fetch_remote_metadata(self,
                                org_name,
@@ -479,40 +470,40 @@ class ShakerMetadata:
             sys.exit(1)
 
         shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_metadata: "
-                                     "Fetching remote repository "
-                                     "%s/%s:%s"
-                                     % (org_name,
-                                        formula_name,
-                                        constraint))
+                                          "Fetching remote repository "
+                                          "%s/%s:%s"
+                                          % (org_name,
+                                             formula_name,
+                                             constraint))
         # Check for successful access and any credential problems
         metadata = self._fetch_remote_file(org_name,
                                            formula_name,
                                            "metadata.yml",
                                            constraint)
-    
+
         data = None
         if metadata:
             data = yaml.load(metadata)
             parsed_data = self._parse_metadata_name(data)
             parsed_data["dependencies"] = self._parse_metadata_requirements(data)
-            for dependency, dependency_info in parsed_data["dependences"].items():
+            for dependency_info in parsed_data["dependences"].values():
                 dependency_info['sourced_constraints'] = dependency_info.get('constraint', '')
                 shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_metadata: "
-                                                      "Added sourced constraint '%s'"
-                                                      % (dependency_info))
+                                                  "Added sourced constraint '%s'"
+                                                  % (dependency_info))
             return data
         else:
             shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_metadata: "
-                                     "No metadata found for "
-                                     "%s/%s:%s"
-                                     % (org_name,
-                                        formula_name,
-                                        constraint))
-    
+                                              "No metadata found for "
+                                              "%s/%s:%s"
+                                              % (org_name,
+                                                 formula_name,
+                                                 constraint))
+
     def _fetch_remote_requirements(self,
-                               org_name,
-                               formula_name,
-                               constraint=None):
+                                   org_name,
+                                   formula_name,
+                                   constraint=None):
         """
         Use a organisation, formula name and optional
         constraint to fetch the requiremtns for a formula
@@ -538,18 +529,18 @@ class ShakerMetadata:
         """
         # Check for successful access and any credential problems
         raw_requirements = self._fetch_remote_file(org_name,
-                                           formula_name,
-                                           "formula-requirements.txt",
-                                           constraint)
+                                                   formula_name,
+                                                   "formula-requirements.txt",
+                                                   constraint)
         parsed_data = None
         if raw_requirements:
             data = raw_requirements.split()
             if data:
                 parsed_data = self._parse_metadata_requirements(data)
                 shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_requirements: "
-                                                      "Found parsed_data %s"
-                                                      % (parsed_data))
-                for entry, entry_info in parsed_data.items():
+                                                  "Found parsed_data %s"
+                                                  % (parsed_data))
+                for entry_info in parsed_data.values():
                     entry_info['sourced_constraints'] = [entry_info.get('constraint', '')]
                     shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_requirements: "
                                                       "Added sourced constraint '%s'"
@@ -557,20 +548,20 @@ class ShakerMetadata:
                 return parsed_data
             else:
                 msg = ("ShakerMetadata::_fetch_remote_requirements: "
-                   "Could not parse requirements found for %s/%s\n%s\n\n"
-                   % (org_name, formula_name, raw_requirements))
+                       "Could not parse requirements found for %s/%s\n%s\n\n"
+                       % (org_name, formula_name, raw_requirements))
                 raise ShakerConfigException(msg)
         else:
             msg = ("ShakerMetadata::_fetch_remote_requirements: "
                    "No requirements found for %s/%s"
                    % (org_name, formula_name))
             shaker.libs.logger.Logger().warning(msg)
-    
+
     def _fetch_remote_file(self,
-                               org_name,
-                               formula_name,
-                               remote_file,
-                               constraint=None):
+                           org_name,
+                           formula_name,
+                           remote_file,
+                           constraint=None):
         """
         Use a organisation, formula name and optional
         constraint to fetch the requirements for a formula
@@ -578,7 +569,7 @@ class ShakerMetadata:
         Args:
             org_name(string): The name of the organisation
             formula_name(string): The name of the formula
-            remote_file(string): The requirements file 
+            remote_file(string): The requirements file
                 of the formula
             constraint(string): (optional) Constraint of the
                 formula. In '==v1.0.0' type format
@@ -598,16 +589,14 @@ class ShakerMetadata:
                                                 "No target object found"
                                                 % (org_name, formula_name, constraint))
             return None
-        
+
         target_tag = target_obj.get("name", None)
-        
-        
+
         remote_file_url = ("https://raw.githubusercontent.com/%s/%s/%s/%s"
-                               % (org_name,
-                                  formula_name,
-                                  target_tag,
-                                  remote_file))
-       
+                           % (org_name,
+                              formula_name,
+                              target_tag,
+                              remote_file))
 
         # Check for successful access and any credential problems
         raw_data = requests.get(remote_file_url,
@@ -617,13 +606,13 @@ class ShakerMetadata:
             return raw_data.content
         else:
             shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_file: "
-                                          "Could not validate github access to '%s'"
-                                          % (remote_file_url))
+                                              "Could not validate github access to '%s'"
+                                              % (remote_file_url))
         return None
-    
+
     def _add_dependencies_from_metadata(self, metadata):
         """
-        Load in dependencies from a dictionary of form 
+        Load in dependencies from a dictionary of form
         'dependencies': {
                     'test_organisation/some-formula':
                     {
@@ -645,45 +634,45 @@ class ShakerMetadata:
                     if dep_key != self.root_metadata.get('formula', None):
                         if dep_key not in self.dependencies:
                             shaker.libs.logger.Logger().debug("ShakerMetadata::_add_dependencies_from_metadata: "
-                                                                 "New Metadata added '%s"
-                                                                 % (dep_key))
+                                                              "New Metadata added '%s"
+                                                              % (dep_key))
                             self.dependencies[dep_key] = dep_info
                         else:
                             # Resolve constraints
                             current_constraint = self.dependencies[dep_key].get('constraint', {})
                             new_constraint = dep_info.get('constraint', None)
                             self.dependencies[dep_key]['constraint'] = shaker.libs.metadata.resolve_constraints(new_constraint,
-                                                                                                 current_constraint)
+                                                                                                                current_constraint)
                             shaker.libs.logger.Logger().debug("ShakerMetadata::_add_dependencies_from_metadata: "
-                                                                 "Updating constraint for '%s"
-                                                                 % (dep_key))
+                                                              "Updating constraint for '%s"
+                                                              % (dep_key))
                             # Merge source constraints
                             current_sourced_constraints = self.dependencies[dep_key].get('sourced_constraints', [])
                             new_sourced_constraints = dep_info.get('sourced_constraints', [])
                             self.dependencies[dep_key]['sourced_constraints'] = current_sourced_constraints + new_sourced_constraints
                             shaker.libs.logger.Logger().debug("ShakerMetadata::_add_dependencies_from_metadata: "
-                                                                 "Merged sourced constraints\n"
-                                                                 "'%s' + '%s' = '%s'"
-                                                                 % (current_sourced_constraints,
-                                                                    new_sourced_constraints,
-                                                                    self.dependencies[dep_key]['sourced_constraints']))
+                                                              "Merged sourced constraints\n"
+                                                              "'%s' + '%s' = '%s'"
+                                                              % (current_sourced_constraints,
+                                                                 new_sourced_constraints,
+                                                                 self.dependencies[dep_key]['sourced_constraints']))
                     else:
                         shaker.libs.logger.Logger().debug("ShakerMetadata::_add_dependencies_from_metadata: "
-                                                                 "Root key found (%s==%s), ignoring"
-                                                                 % (dep_key,
-                                                                    self.root_metadata.get('formula', None)))
+                                                          "Root key found (%s==%s), ignoring"
+                                                          % (dep_key,
+                                                             self.root_metadata.get('formula', None)))
 
             else:
                 shaker.libs.logger.Logger().warning("ShakerMetadata::_add_dependencies_from_metadata: "
-                                                             "Metadata contained no dependencies")
+                                                    "Metadata contained no dependencies")
         else:
             shaker.libs.logger.Logger().error("ShakerMetadata::_add_dependencies_from_metadata: "
-                                                             "Metadata null")
+                                              "Metadata null")
 
             raise ShakerConfigException
 
         return parsed_metadata_dependencies
-    
+
     def _add_dependency_sourced(self,
                                 dependency_key,
                                 constraint):
@@ -694,7 +683,7 @@ class ShakerMetadata:
             dependency_key(string): The key name of the dependency
             constraint(string): The constraint that has been sourced
         """
-        #Need to ensure we don't try to re-get this one
+        # Need to ensure we don't try to re-get this one
         # If we've already sourced this constrained version then we're done
         sourced_constraints = [constraint]
         if dependency_key in self.dependencies:
@@ -704,5 +693,4 @@ class ShakerMetadata:
         else:
             self.dependencies[dependency_key] = {}
 
-        self.dependencies[dependency_key]["sourced_constraints"] = sourced_constraints   
-
+        self.dependencies[dependency_key]["sourced_constraints"] = sourced_constraints
