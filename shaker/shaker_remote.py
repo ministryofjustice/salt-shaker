@@ -1,15 +1,17 @@
 import shaker.libs.logger
 import shaker.libs.github
 import os
+import errno
+import time
 import shutil
 
 
 class ShakerRemote:
     """
-    Class to handle communication with remote repositories, 
-    resolving dependencies into downloads into local 
+    Class to handle communication with remote repositories,
+    resolving dependencies into downloads into local
     directories
-    
+
     Attributes:
         _dependencies(list): A list of git repository targets
     """
@@ -20,7 +22,7 @@ class ShakerRemote:
     _salt_root = ''
     _logger = None
     _dynamic_modules_dirs = ['_modules', '_grains', '_renderers',
-                            '_returners', '_states']
+                             '_returners', '_states']
 
     def __init__(self,
                  dependencies,
@@ -39,13 +41,13 @@ class ShakerRemote:
         targets from the dictionary of dependencies
         """
         self._logger.debug("ShakerRemote::update_dependencies: "
-                          "Updating the dependencies \n%s\n\n"
-                          % (self._dependencies))
+                           "Updating the dependencies \n%s\n\n"
+                           % (self._dependencies))
         for dependency in self._dependencies.values():
             target_sha = self._resolve_constraint_to_sha(dependency)
             self._logger.debug("ShakerRemote::update_dependencies: "
-                             "Found sha '%s'"
-                             % (target_sha))
+                               "Found sha '%s'"
+                               % (target_sha))
             if target_sha:
                 dependency["sha"] = target_sha
 
@@ -60,16 +62,17 @@ class ShakerRemote:
             install_dir = os.path.join(self._working_directory,
                                        self._install_directory)
             shaker.libs.github.install_source(dependency,
-                                                 install_dir)
+                                              install_dir)
             self._logger.debug("ShakerRemote::install_dependencies: "
-                              "Installed '%s to directory '%s'"
-                              % (dependency_name,
-                                 install_dir))
-            
+                               "Installed '%s to directory '%s'"
+                               % (dependency_name,
+                                  install_dir))
+
     def write_requirements(self,
                            output_directory='.',
                            output_filename='formula-requirements.txt',
-                           overwrite=False):
+                           overwrite=False,
+                           backup=True):
         """
         Write out the resolved dependency list, into the file
         in the working directory. Skip overwrite unless forced
@@ -85,20 +88,28 @@ class ShakerRemote:
         path = "%s/%s" % (output_directory,
                           output_filename)
 
-        if os.path.exists(path) and not overwrite:
-            shaker.libs.logger.Logger().warning('ShakerMetadata::write_requirements: '
-                                                   ' File exists, not writing...')
-            return False
-        else:
-            with open(path, 'w') as outfile:
-                requirements = self._get_requirements()
-                outfile.write('\n'.join(requirements))
-                outfile.write('\n')
-                shaker.libs.logger.Logger().debug("ShakerMetadata::write_requirements: "
-                                                      "Wrote file '%s'"
-                                                      % (path)
-                                                      )
-                return True
+        if os.path.exists(path):
+            if not overwrite:
+                shaker.libs.logger.Logger().warning('ShakerMetadata::write_requirements: '
+                                                    ' File exists, not writing...')
+                return False
+            elif backup:
+                newpath = "%s.%s" % (path, time.time())
+                os.rename(path, newpath)
+                shaker.libs.logger.Logger().info('ShakerMetadata::write_requirements: '
+                                                 ' File exists, renaming %s to %s.'
+                                                 % (path,
+                                                    newpath))
+
+        with open(path, 'w') as outfile:
+            requirements = self.get_requirements()
+            outfile.write('\n'.join(requirements))
+            outfile.write('\n')
+            shaker.libs.logger.Logger().debug("ShakerMetadata::write_requirements: "
+                                              "Wrote file '%s'"
+                                              % (path)
+                                              )
+            return True
 
         return False
 
@@ -110,7 +121,6 @@ class ShakerRemote:
                                 dependency_name)
 
         for libdir in self._dynamic_modules_dirs:
-            
             targetdir = os.path.join(self._working_directory,
                                      self._salt_root,
                                      libdir)
@@ -151,7 +161,7 @@ class ShakerRemote:
         org = dependency.get('organisation', None)
         name = dependency.get('name', None)
         constraint = dependency.get('constraint', None)
-        
+
         # Resolve the constraint to an actual tag
         target_obj = shaker.libs.github.resolve_constraint_to_object(org, name, constraint)
         if target_obj:
@@ -162,9 +172,8 @@ class ShakerRemote:
                                   dependency["version"],
                                   dependency["sha"]))
             return dependency["sha"]
-        
+
         return None
-        
 
     def _create_directories(self, overwrite=False):
         """
@@ -180,42 +189,42 @@ class ShakerRemote:
         if os.path.exists(salt_root_path):
             shutil.rmtree(salt_root_path)
             self._logger.debug("_create_directories: Deleting salt root directory '%s'"
-                           % (salt_root_path))
+                               % (salt_root_path))
         os.makedirs(salt_root_path)
-        
+
         # Ensure the repos_dir exists
         install_path = os.path.join(self._working_directory,
                                     self._install_directory)
-        
+
         if not os.path.exists(install_path):
             try:
                 self._logger.debug("_create_directories: Creating repository directory '%s'"
-                               % (install_path))
+                                   % (install_path))
                 os.makedirs(install_path)
             except OSError as e:
                     raise IOError("There was a problem creating the directory '%s', '%s'"
-                               % (install_path, e))
+                                  % (install_path, e))
         elif overwrite and os.path.exists(install_path):
             shutil.rmtree(install_path)
             self._logger.debug("_create_directories: Deleting repository directory '%s'"
-                           % (install_path))
+                               % (install_path))
             os.makedirs(install_path)
-        
 
-    def _get_requirements(self):
+    def get_requirements(self):
         """
             Get a list of the requirements from the current
             dependency metadata
 
         Returns:
-            (list): List of requirements or None type
+            (list): List of requirements or None type. Format is
+                <organisation-name>/<formula-name>(comparator)
         """
         requirements = []
         if self._dependencies and len(self._dependencies) > 0:
 
             for key, info in self._dependencies.items():
                 entry = ("%s==%s"
-                         % (info.get("source", ""),
+                         % (key,
                             info.get("version", "")
                             ))
                 requirements.append(entry)
