@@ -7,7 +7,6 @@ import sys
 from parse import parse
 import urlparse
 import pygit2
-import time
 from datetime import datetime
 import base64
 
