@@ -1,17 +1,17 @@
-import logging
 import json
 import requests
 import os
 import re
 import sys
+import pygit2
 from parse import parse
 import urlparse
-import pygit2
 from datetime import datetime
 import base64
 
 import metadata
 from errors import ConstraintResolutionException
+import shaker.libs.logger
 
 const_re = re.compile('([=><]+)\s*(.*)')
 tag_re = re.compile('v[0-9]+\.[0-9]+\.[0-9]+')
@@ -28,7 +28,7 @@ def parse_github_url(url):
         url(string): The github url to parse
 
     Returns:
-        info(dictionary): A dictionary of information
+        debug(dictionary): A dictionary of information
             about the url of the form
             {
                 'source': <source>,
@@ -38,9 +38,9 @@ def parse_github_url(url):
             }
     """
     github_root = "git@github.com:"
-    logging.getLogger('salt-shaker').debug("github::parse_github_url: "
-                                           " Parsing '%s'"
-                                           % (url))
+    shaker.libs.logger.Logger().debug("github::parse_github_url: "
+                                      " Parsing '%s'"
+                                      % (url))
     constraint = ''
     result = None
     have_constraint = False
@@ -60,6 +60,9 @@ def parse_github_url(url):
         result = parse("%s{organisation}/{name}.git"
                        % (github_root),
                        url)
+        shaker.libs.logger.Logger().debug("github::parse_github_url:"
+                                          "No constraint found for %s"
+                                          % (url))
 
     organisation = result['organisation']
     name = result['name']
@@ -86,19 +89,17 @@ def get_tags(org_name, formula_name):
             else:
                 rettag = map(int, tag.split('.'))
 
-            logging.getLogger(__name__).debug("helpers.github::get_tags: "
-                                              "Converted tag %s to %s"
-                                              % (tag, rettag))
             return rettag
         except ValueError:
-            logging.getLogger(__name__).warn("helpers.github::get_tags: "
-                                             "Invalid tag %s'"
-                                             % (tag))
+            shaker.libs.logger.Logger().warning("github::get_tags: "
+                                                "Invalid tag %s'"
+                                                % (tag))
             return []
 
     github_token = get_valid_github_token()
     if not github_token:
-        logging.error("helpers.github::get_tags: No valid github token")
+        shaker.libs.logger.Logger().error("github::get_tags: "
+                                          "No valid github token")
         sys.exit(1)
 
     tags_url = ('https://api.github.com/repos/%s/%s/tags'
@@ -115,15 +116,14 @@ def get_tags(org_name, formula_name):
             tag_versions.sort(key=convert_tagname)
             wanted_tag = 'v{0}'.format(tag_versions[-1])
         except ValueError as e:
-            msg = ("helpers.github::get_tags: Invalid json for url '%s': %s"
+            msg = ("github::get_tags: "
+                   "Invalid json for url '%s': %s"
                    % (tags_url,
                       e.message))
             raise ValueError(msg)
     else:
         wanted_tag = 'master'
 
-    logging.getLogger(__name__).debug("get_tags(%s, %s) => %s, %s"
-                                      % (org_name, formula_name, wanted_tag, tag_versions))
     return wanted_tag, tag_versions, tags_data
 
 
@@ -146,13 +146,15 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
         dictionary: Json data from github associated with the resolved tag
         ConstraintResolutionException: If no resolutions was possible
     """
-    logging.getLogger('helpers.github').debug("resolve_constraint_to_tag(%s, %s, %s)"
-                                              % (org_name, formula_name, constraint))
+    shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                      "resolve_constraint_to_object(%s, %s, %s)"
+                                      % (org_name, formula_name, constraint))
     wanted_tag, tag_versions, tags_data = get_tags(org_name, formula_name)
 
     if not constraint or (constraint == ''):
-        logging.getLogger('helpers.github').debug("No constraint specified, returning '%s'"
-                                                  % (wanted_tag))
+        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                          "No constraint specified, returning '%s'"
+                                          % (wanted_tag))
         obj = None
         for tag_data in tags_data:
             if tag_data["name"] == wanted_tag:
@@ -169,8 +171,9 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
     if tag_versions and parsed_version:
         if parsed_comparator == '==':
             if parsed_version in tag_versions:
-                logging.getLogger('helpers.github').debug("Found exact version '%s'"
-                                                          % (parsed_version))
+                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                                  "Found exact version '%s'"
+                                                  % (parsed_version))
                 obj = None
                 for tag_data in tags_data:
                     if tag_data["name"] == parsed_tag:
@@ -178,7 +181,8 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                         break
                 return obj
             else:
-                raise ConstraintResolutionException("Could not satisfy constraint '%s', "
+                raise ConstraintResolutionException("github::resolve_constraint_to_object: "
+                                                    "Could not satisfy constraint '%s', "
                                                     " version %s not in tag list %s"
                                                     % (constraint,
                                                        parsed_constraint,
@@ -200,12 +204,14 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                         valid_version = tag_version
                         break
             else:
-                msg = ("Unknown comparator '%s'" % (parsed_comparator))
+                msg = ("github::resolve_constraint_to_object: "
+                       "Unknown comparator '%s'" % (parsed_comparator))
                 raise ConstraintResolutionException(msg)
 
             if valid_version:
-                logging.getLogger('helpers.github').debug("resolve_constraint_to_object:Found valid version '%s'"
-                                                          % (valid_version))
+                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                                  "resolve_constraint_to_object:Found valid version '%s'"
+                                                  % (valid_version))
                 valid_tag = 'v%s' % valid_version
                 obj = None
                 for tag_data in tags_data:
@@ -215,12 +221,15 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
 
                 return obj
             else:
-                raise ConstraintResolutionException('Constraint %s cannot be satisfied for %s/%s'
+                raise ConstraintResolutionException("github::resolve_constraint_to_object: "
+                                                    'Constraint %s cannot be satisfied for %s/%s'
                                                     % (constraint, org_name, formula_name))
     else:
-        msg = ("Unknown parsed constraint '%s' from '%s'" % (parsed_constraint, constraint))
+        msg = ("github::resolve_constraint_to_object: "
+               "Unknown parsed constraint '%s' from '%s'" % (parsed_constraint, constraint))
         raise ConstraintResolutionException(msg)
-    raise ConstraintResolutionException('Constraint {} cannot be satisfied for {}/{}'.format(constraint,
+    raise ConstraintResolutionException("github::resolve_constraint_to_object: "
+                                        'Constraint {} cannot be satisfied for {}/{}'.format(constraint,
                                                                                              org_name,
                                                                                              formula_name))
 
@@ -242,8 +251,8 @@ def get_valid_github_token(online_validation_enabled=False):
 
     # A simple check for the right environment variable
     if "GITHUB_TOKEN" not in os.environ:
-        logging.error("No github token found. "
-                      "Please set your GITHUB_TOKEN environment variable")
+        shaker.libs.logger.Logger().error("No github token found. "
+                                          "Please set your GITHUB_TOKEN environment variable")
     else:
         # Test an oauth call to the api, make sure the credentials are
         # valid and we're not locked out
@@ -258,8 +267,8 @@ def get_valid_github_token(online_validation_enabled=False):
             valid_response = validate_github_access(response)
             if valid_response:
                 github_token = os.environ["GITHUB_TOKEN"]
-                logging.error("No valid repsonse from github token '%s'"
-                              % (github_token))
+                shaker.libs.logger.Logger().error("No valid repsonse from github token '%s'"
+                                                  % (github_token))
         else:
             # If we're not validating online, just accept that we have a token
             github_token = os.environ["GITHUB_TOKEN"]
@@ -302,7 +311,7 @@ def validate_github_access(response):
 
         # Check the status codes for success
         if response.status_code == 200:
-            logging.info("Github access checked ok")
+            shaker.libs.logger.Logger().debug("Github access checked ok")
             return True
         else:
             # Set a default response message, use the real one if we
@@ -313,24 +322,24 @@ def validate_github_access(response):
                 response_json = json.loads(response.text)
                 if "message" in response_json:
                     response_message = response_json["message"]
-                logging.debug("Github credentials test got response: %s"
-                              % response_json)
+                shaker.libs.logger.Logger().debug("Github credentials test got response: %s"
+                                                  % response_json)
             except:
                 # Just ignore if we can'l load json, its not essential here
                 if (response.status_code == 401) and ("Bad credentials" in response_message):
-                    logging.error("validate_github_access: "
-                                  "Github credentials incorrect: %s" % response_message)
+                    shaker.libs.logger.Logger().error("validate_github_access: "
+                                                      "Github credentials incorrect: %s" % response_message)
                 elif response.status_code == 403 and ("Maximum number of login attempts exceeded" in response_message):
-                    logging.error("validate_github_access: "
-                                  "Github credentials failed due to lockout: %s" % response_message)
+                    shaker.libs.logger.Logger().error("validate_github_access: "
+                                                      "Github credentials failed due to lockout: %s" % response_message)
                 elif response.status_code == 404:
-                    logging.error("validate_github_access: "
-                                  "URL not found")
+                    shaker.libs.logger.Logger().error("validate_github_access: "
+                                                      "URL not found")
                 else:
-                    logging.error("validate_github_access: "
-                                  "Unknown problem checking credentials: %s" % response)
+                    shaker.libs.logger.Logger().error("validate_github_access: "
+                                                      "Unknown problem checking credentials: %s" % response)
     else:
-        logging.error("Invalid response: %s" % response)
+        shaker.libs.logger.Logger().error("Invalid response: %s" % response)
 
     return False
 
@@ -356,18 +365,18 @@ def open_repository(url,
     # If local directory exists, then make a connection to it
     # Otherwise, clone the remote repo into the new directory
     if os.path.isdir(target_directory):
-        logging.getLogger(__name__).info("open_repository: "
-                                         "Opening url '%s' "
-                                         "with existing local repository '%s'"
-                                         % (url, target_directory))
+        shaker.libs.logger.Logger().debug("open_repository: "
+                                          "Opening url '%s' "
+                                          "with existing local repository '%s'"
+                                          % (url, target_directory))
         repo = pygit2.Repository(target_directory)
     else:
         repo = pygit2.clone_repository(url,
                                        target_directory,
                                        credentials=credentials)
-        logging.getLogger(__name__).info(":open_repository: "
-                                         "Cloning url '%s' into local repository '%s'"
-                                         % (url, target_directory))
+        shaker.libs.logger.Logger().debug(":open_repository: "
+                                          "Cloning url '%s' into local repository '%s'"
+                                          % (url, target_directory))
     origin = filter(lambda x: x.name == 'origin', repo.remotes)
     if not origin:
         repo.create_remote('origin', url)
@@ -398,7 +407,7 @@ def install_source(target_source,
     target_sha = target_source.get('sha', None)
     target_path = os.path.join(target_directory,
                                target_name)
-    logging.getLogger(__name__).debug("install_source: Opening %s in directory %s, "
+    shaker.libs.logger.Logger().debug("install_source: Opening %s in directory %s, "
                                       "with url %s, and sha %s"
                                       % (target_name,
                                          target_directory,
@@ -406,10 +415,23 @@ def install_source(target_source,
                                          target_sha))
     target_repository = open_repository(target_url, target_path)
 
+    current_sha = get_repository_sha(target_path,
+                                     revision='HEAD')
+
+    # If the local and target shas are the same, skip
+    # otherwise, update the repository
+    if current_sha == target_sha:
+        shaker.libs.logger.Logger().debug("github::install_source: %s: "
+                                          "Target and current shas are equivalent..."
+                                          "skipping update: %s"
+                                          % (target_path,
+                                             target_sha))
+        return False
+
     oid = pygit2.Oid(hex=target_sha)
     target_repository.checkout_tree(target_repository[oid].tree)
-    logging.getLogger(__name__).info("install_source: Checking out sha '%s' into '%s"
-                                     % (target_sha, target_path))
+    shaker.libs.logger.Logger().debug("github::install_source: Checking out sha '%s' into '%s"
+                                      % (target_sha, target_path))
     # The line below is *NOT* just setting a value.
     # Pygit2 internally resets the head of the filesystem to the OID we set.
     #
@@ -418,13 +440,13 @@ def install_source(target_source,
     target_repository.set_head(oid)
 
     if target_repository.head.get_object().hex != target_sha:
-        logging.info("Resetting sha mismatch on source '%s'"
-                     % (target_name))
+        shaker.libs.logger.Logger().debug("Resetting sha mismatch on source '%s'"
+                                          % (target_name))
         target_repository.reset(target_sha, pygit2.GIT_RESET_HARD)
         # repo.head.reset(commit=sha, index=True, working_tree=True)
 
-    logging.getLogger('helpers.github').info("Source '%s' is at version '%s'"
-                                             % (target_name, target_sha))
+    shaker.libs.logger.Logger().debug("Source '%s' is at version '%s'"
+                                      % (target_name, target_sha))
 
     return True
 
@@ -464,7 +486,7 @@ def resolve_tag_to_sha(target_source,
         tag_ref = 'refs/tags/{}'.format(target_version)
         if tag_ref in refs:
             sha = repository.lookup_reference(tag_ref).get_object().hex
-            logging.getLogger(__name__).debug("resolve_tag_to_sha: "
+            shaker.libs.logger.Logger().debug("resolve_tag_to_sha: "
                                               "Found sha '%s' for tag '%s' on attempt"
                                               % (sha,
                                                  tag_ref,
@@ -480,7 +502,7 @@ def resolve_tag_to_sha(target_source,
             # remote
             if full_ref:
                 sha = full_ref.get_object().hex
-                logging.getLogger(__name__).debug("resolve_tag_to_sha: "
+                shaker.libs.logger.Logger().debug("resolve_tag_to_sha: "
                                                   "Found sha '%s' for branch '%s'"
                                                   % (sha, tag_ref))
                 return sha
@@ -488,7 +510,7 @@ def resolve_tag_to_sha(target_source,
         # Could just be a SHA
         try:
             sha = repository.revparse_single(target_version).hex
-            logging.getLogger(__name__).debug("resolve_tag_to_sha: "
+            shaker.libs.logger.Logger().debug("resolve_tag_to_sha: "
                                               "Found direct reference to sha '%s'"
                                               % (sha))
             return sha
@@ -496,13 +518,13 @@ def resolve_tag_to_sha(target_source,
             # Maybe we just need to fetch first.
             pass
 
-        logging.getLogger(__name__).debug("resolve_tag_to_sha: "
+        shaker.libs.logger.Logger().debug("resolve_tag_to_sha: "
                                           "Cannot find version '%s' in refs '%s'"
                                           % (target_version, refs))
     return None
 
 
-def get_repository_info(repository):
+def get_repository_debug(repository):
     repo = pygit2.Repository(repository)
     objects = {
         'tags': [],
@@ -576,3 +598,27 @@ def get_origin_for_remote(repository):
             return remote
 
     return None
+
+
+def get_repository_sha(path,
+                       revision='HEAD'):
+    """
+    Get the sha from a repository path and revision
+
+    Args:
+        path(string): The path to the repository to open
+        revision(string): the revision to get the sha of
+
+    Returns:
+        string: The sha of the revision, None type if
+            not found
+    """
+    try:
+        repository = pygit2.Repository(path)
+        sha = repository.revparse_single(revision).oid
+        return sha.__str__()
+    except KeyError as e:
+        shaker.libs.logger.Logger().debug("github::get_repository_sha: "
+                                          "Error opening repository: %s"
+                                          % (e))
+        return None

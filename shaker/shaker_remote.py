@@ -51,28 +51,67 @@ class ShakerRemote:
             if target_sha:
                 dependency["sha"] = target_sha
 
-    def install_dependencies(self, overwrite=False):
+    def install_dependencies(self,
+                             overwrite=False,
+                             remove_directories=True):
         """
         Install the dependency as specified by the formula dictionary and
         return the directory symlinked into the roots_dir
+
+        Args:
+            overwrite(bool): True if we will delete and recreate existing
+                directories, False to preserve them
+            remove_directories(bool): True to delete unused directories,
+                False to preserve them
+        Returns:
+            tuple: Tuple of successful, skipped repository updates
         """
         self._create_directories(overwrite=overwrite)
+        successful_updates = 0
+        unsuccessful_updates = 0
+        install_dir = os.path.join(self._working_directory,
+                                   self._install_directory)
         for dependency in self._dependencies.values():
             dependency_name = dependency.get("name", None)
-            install_dir = os.path.join(self._working_directory,
-                                       self._install_directory)
-            shaker.libs.github.install_source(dependency,
-                                              install_dir)
+            success = shaker.libs.github.install_source(dependency,
+                                                        install_dir)
             self._logger.debug("ShakerRemote::install_dependencies: "
-                               "Installed '%s to directory '%s'"
+                               "Installed '%s to directory '%s': %s"
                                % (dependency_name,
-                                  install_dir))
+                                  install_dir,
+                                  success))
+            if success:
+                # Do linking of modules
+                self._link_dynamic_modules(dependency)
+                successful_updates += 1
+            else:
+                unsuccessful_updates += 1
+
+        if remove_directories:
+            for pathname in os.listdir(install_dir):
+                    found = False
+                    for value in self._dependencies.values():
+                        name = value.get("name", None)
+                        if pathname == name:
+                            found = True
+                            break
+                    if not found:
+                        shaker.libs.logger.Logger().debug("ShakerRemote::install_dependencies: "
+                                                          "Deleting directory on non-existent "
+                                                          "dependency '%s'"
+                                                          % (pathname))
+                        fullpath = os.path.join(self._working_directory,
+                                                self._install_directory,
+                                                pathname)
+                        shutil.rmtree(fullpath)
+
+        return (successful_updates, unsuccessful_updates)
 
     def write_requirements(self,
                            output_directory='.',
                            output_filename='formula-requirements.txt',
                            overwrite=False,
-                           backup=True):
+                           backup=False):
         """
         Write out the resolved dependency list, into the file
         in the working directory. Skip overwrite unless forced
@@ -94,7 +133,9 @@ class ShakerRemote:
                                                     ' File exists, not writing...')
                 return False
             elif backup:
-                newpath = "%s.%s" % (path, time.time())
+                # postfix = time.time()
+                postfix = "last"
+                newpath = "%s.%s" % (path, postfix)
                 try:
                     os.rename(path, newpath)
                     shaker.libs.logger.Logger().info('ShakerMetadata::write_requirements: '

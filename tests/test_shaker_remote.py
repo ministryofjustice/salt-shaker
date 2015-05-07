@@ -117,3 +117,15 @@ class TestShakerRemote(TestCase):
                                             "we shouldn't have called to open"))
         self.assertFalse(mock_write.called, ("With overwrite disabled, "
                                              "we shouldn't have called to write"))
+
+    @patch('shaker.libs.github.install_source')
+    @patch('shaker.libs.github.get_repository_sha')
+    @patch('shaker.shaker_remote.ShakerRemote._create_directories')
+    def test_install_dependencies_non_existing_sha(self,
+                                                   mock_create_directories,
+                                                   mock_get_repository_sha,
+                                                   mock_install_source):
+        mock_create_directories.return_value = None
+        mock_get_repository_sha.side_effect = ["fake_sha",
+                                               None]
+        mock_install_source.return_value = True

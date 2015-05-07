@@ -3,6 +3,7 @@ from shaker.libs import metadata
 from nose.tools import raises
 from shaker.libs.errors import ConstraintResolutionException
 
+
 class TestMetadata(TestCase):
 
     # Sample metadata with duplicates
@@ -34,7 +35,6 @@ class TestMetadata(TestCase):
         # Under a simple resolve, the current constraint should win
         new_constraint = '==v0.1'
         current_constraint = '==v1.1'
-        criteria = 'simple'
         constraint = metadata.resolve_constraints(new_constraint,
                                                   current_constraint)
         self.assertEqual(constraint,
@@ -107,14 +107,16 @@ class TestMetadata(TestCase):
 
         # Test dependencies found
         for expected_metadata_dependency in expected_metadata_dependencies:
-            self.assertTrue(expected_metadata_dependency in resolved_metadata_dependencies, 
-                            "test_resolve_metadata_duplicates: dependency '%s' not found in de-duplicated metadata"
+            self.assertTrue(expected_metadata_dependency in resolved_metadata_dependencies,
+                            "test_resolve_metadata_duplicates: dependency '%s' "
+                            "not found in de-duplicated metadata"
                             % (expected_metadata_dependency))
 
         # Test entry found
         for expected_metadata_entry in expected_metadata_entries:
-            self.assertTrue(expected_metadata_entry in resolved_metadata_entries, 
-                            "test_resolve_metadata_duplicates: Entry '%s' not found in de-duplicated metadata"
+            self.assertTrue(expected_metadata_entry in resolved_metadata_entries,
+                            "test_resolve_metadata_duplicates: Entry '%s' "
+                            "not found in de-duplicated metadata"
                             % (expected_metadata_entry))
 
     @raises(TypeError)
@@ -131,4 +133,3 @@ class TestMetadata(TestCase):
         TestMetadata: Check if metadata with a missing index will throw an error
         """
         metadata.resolve_metadata_duplicates({})
-

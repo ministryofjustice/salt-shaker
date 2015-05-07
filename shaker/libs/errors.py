@@ -9,3 +9,7 @@ class ConstraintFormatException(Exception):
 
 class ConstraintResolutionException(Exception):
     pass
+
+
+class GithubRepositoryConnectionException(Exception):
+    pass

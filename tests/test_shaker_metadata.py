@@ -2,21 +2,36 @@ from unittest import TestCase
 from mock import patch
 from mock import mock_open
 from nose.tools import raises
+import testfixtures
 
 import logging
 import shaker.libs.logger
 from shaker.shaker_metadata import ShakerMetadata
-from testfixtures import compare
 
 
 class TestShakerMetadata(TestCase):
 
     _sample_metadata_root = {
         "formula": "test_organisation/root-formula",
-        "dependencies": [
-            "git@github.com:test_organisation/test1-formula.git==v1.0.1",
-            "git@github.com:test_organisation/test2-formula.git==v2.0.1",
-        ]
+        'dependencies':
+        {
+            'test_organisation/test1-formula':
+            {
+                'source': 'git@github.com:test_organisation/test1-formula.git',
+                'constraint': '==v1.0.1',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'test1-formula'
+            },
+                'test_organisation/test2-formula':
+                {
+                    'source': 'git@github.com:test_organisation/test2-formula.git',
+                    'constraint': '==v2.0.1',
+                    'sourced_constraints': [],
+                    'organisation': 'test_organisation',
+                    'name': 'test2-formula'
+            }
+        }
     }
 
     _sample_metadata_test1 = {
@@ -55,28 +70,29 @@ class TestShakerMetadata(TestCase):
     _sample_requirements_testc = {}
 
     _sample_root_formula = {
-            'formula': 'test_organisation/root-formula',
-            'organisation': 'test_organisation',
-            'name': 'root-formula',
-            'dependencies': {
-                'test_organisation/test1-formula':
-                {
-                 'source': 'git@github.com:test_organisation/test1-formula.git',
-                 'constraint': '==v1.0.1',
-                 'sourced_constraints': [],
-                 'organisation': 'test_organisation',
-                 'name': 'test1-formula'
-                 },
-                'test_organisation/test2-formula':
-                {
-                 'source': 'git@github.com:test_organisation/test2-formula.git',
-                 'constraint': '==v2.0.1',
-                 'sourced_constraints': [],
-                 'organisation': 'test_organisation',
-                 'name': 'test2-formula'
-                 }
+        'formula': 'test_organisation/root-formula',
+        'organisation': 'test_organisation',
+        'name': 'root-formula',
+        'dependencies': {
+            'test_organisation/test1-formula':
+            {
+                'source': 'git@github.com:test_organisation/test1-formula.git',
+                'constraint': '==v1.0.1',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'test1-formula'
+            },
+            'test_organisation/test2-formula':
+            {
+                'source': 'git@github.com:test_organisation/test2-formula.git',
+                'constraint': '==v2.0.1',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'test2-formula'
             }
         }
+    }
+
     _sample_dependencies = {
         'test_organisation/test1-formula': {
             'source': 'git@github.com:test_organisation/test1-formula.git',
@@ -133,19 +149,19 @@ class TestShakerMetadata(TestCase):
         },
     }
     _sample_requirements_file = ("git@github.com:test_organisation/test1-formula.git==v1.0.1\n"
-                            "git@github.com:test_organisation/test2-formula.git==v2.0.1\n"
-                            "git@github.com:test_organisation/test3-formula.git==v3.0.1\n")
-    
+                                 "git@github.com:test_organisation/test2-formula.git==v2.0.1\n"
+                                 "git@github.com:test_organisation/test3-formula.git==v3.0.1\n")
+
     _sample_tags_test1 = [
-        { "name": "v1.0.0"},
-        { "name": "v1.0.1"},
-        { "name": "v1.0.2"},
+        {"name": "v1.0.0"},
+        {"name": "v1.0.1"},
+        {"name": "v1.0.2"},
     ]
 
     _sample_tags_test2 = [
-        { "name": "v2.0.0"},
-        { "name": "v2.0.1"},
-        { "name": "v2.0.2"},
+        {"name": "v2.0.0"},
+        {"name": "v2.0.1"},
+        {"name": "v2.0.2"},
     ]
 
     def setUp(self):
@@ -170,6 +186,8 @@ class TestShakerMetadata(TestCase):
         """
         TestShakerMetadata: Test object initialises correctly
         """
+        mock_load_local_metadata.return_value = None
+        mock_load_local_requirements.return_value = None
         expected_working_directory = '.'
         expected_metadata_filename = 'metadata.yml'
         testobj_default = ShakerMetadata()
@@ -212,34 +230,38 @@ class TestShakerMetadata(TestCase):
     @patch('__builtin__.open')
     @patch('os.path.exists')
     def test__fetch_local_metadata__fileexists(self,
-                                           mock_path_exists,
-                                           mock_open,
-                                           mock_yaml_load):
+                                               mock_path_exists,
+                                               mock_open,
+                                               mock_yaml_load):
         """
         Test we get data when we load a metadata file
         """
         mock_path_exists.return_value = True
-        mock_yaml_load.return_value = self._sample_metadata_root
-        testobj = ShakerMetadata()
-        actual_return_value = testobj._fetch_local_metadata('fakedir',
-                                                        'fakefile')
-        self.assertEqual(actual_return_value,
-                         self._sample_metadata_root,
-                         "Metadata equalitymismatch: "
-                         "\nActual:%s\nExpected:%s\n\n"
-                         % (actual_return_value,
-                            self._sample_metadata_root))
-     
+        with patch('__builtin__.open',
+                   mock_open(read_data=()),
+                   create=True):
+            mock_yaml_load.return_value = self._sample_metadata_root
+            testobj = ShakerMetadata()
+            actual_return_value = testobj._fetch_local_metadata('fakedir',
+                                                                'fakefile')
+            self.assertEqual(actual_return_value,
+                             self._sample_metadata_root,
+                             "Metadata equalitymismatch: "
+                             "\nActual:%s\nExpected:%s\n\n"
+                             % (actual_return_value,
+                                self._sample_metadata_root))
+
     @raises(IOError)
     @patch('os.path.exists')
     def test__fetch_local_metadata__filenotexist(self,
-                            mock_path_exists):
+                                                 mock_path_exists):
         """
         Test we raise an error when we try to load a non-existent file
         """
         mock_path_exists.return_value = False
         testobj = ShakerMetadata()
-        actual_return_value = testobj._fetch_local_metadata()
+        testobj._fetch_local_metadata()
+        # No assert needed, we're testing for an exception
 
     @patch('shaker.shaker_metadata.ShakerMetadata._parse_metadata_requirements')
     @patch('shaker.shaker_metadata.ShakerMetadata._parse_metadata_name')
@@ -255,9 +277,9 @@ class TestShakerMetadata(TestCase):
         testobj = ShakerMetadata()
         mock_fetch_local_metadata.return_value = self._sample_metadata_root
         mock_parse_metadata_name.return_value = {
-                                                 'organisation': 'test_organisation',
-                                                 'name': 'root-formula'
-                                                }
+            'organisation': 'test_organisation',
+            'name': 'root-formula'
+        }
         mock_parse_metadata_requirements.return_value = self._sample_root_formula["dependencies"]
         testobj.load_local_metadata()
 
@@ -276,103 +298,109 @@ class TestShakerMetadata(TestCase):
     @patch('shaker.shaker_metadata.ShakerMetadata.load_local_metadata')
     @patch('shaker.shaker_metadata.ShakerMetadata.load_local_requirements')
     def test__parse_metadata_requirements_raw(self,
-                                              monk_load_local_requirements,
-                                              monk_load_local_metadata,
+                                              mock_load_local_requirements,
+                                              mock_load_local_metadata,
                                               mock_fetch_local_metadata,
                                               mock_parse_github_url):
         requirements = [
-                        'git@github.com:test_organisation/some-formula.git==v1.0',
-                        'git@github.com:test_organisation/another-formula.git>=v2.0'
-                        ]
-        
+            'git@github.com:test_organisation/some-formula.git==v1.0',
+            'git@github.com:test_organisation/another-formula.git>=v2.0'
+        ]
+
         expected_result = {
-                           'test_organisation/some-formula':
-                           {
-                                'source': 'git@github.com:test_organisation/some-formula.git',
-                                'constraint': '==v1.0',
-                                'sourced_constraints': [],
-                                'organisation': 'test_organisation',
-                                'name': 'some-formula'
-                            },
-                           'test_organisation/another-formula':
-                           {
-                                'source': 'git@github.com:test_organisation/another-formula.git',
-                                'constraint': '>=v2.0',
-                                'sourced_constraints': [],
-                                'organisation': 'test_organisation',
-                                'name': 'another-formula'
-                            }
-                           }
+            'test_organisation/some-formula':
+            {
+                'source': 'git@github.com:test_organisation/some-formula.git',
+                'constraint': '==v1.0',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'some-formula'
+            },
+            'test_organisation/another-formula':
+            {
+                'source': 'git@github.com:test_organisation/another-formula.git',
+                'constraint': '>=v2.0',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'another-formula'
+            }
+        }
         mock_parse_github_url.side_effect = [
-                         {
-                          'source': 'git@github.com:test_organisation/some-formula.git',
-                          'constraint': '==v1.0',
-                          'sourced_constraints': ['==v1.0'],
-                          'organisation': 'test_organisation',
-                          'name': 'some-formula'
-                         },
-                         {
-                          'source': 'git@github.com:test_organisation/another-formula.git',
-                          'constraint': '>=v2.0',
-                          'sourced_constraints': ['==v2.0'],
-                          'organisation': 'test_organisation',
-                          'name': 'another-formula'
-                         },
-                        None
-                    ]
+            {
+                'source': 'git@github.com:test_organisation/some-formula.git',
+                'constraint': '==v1.0',
+                'sourced_constraints': ['==v1.0'],
+                'organisation': 'test_organisation',
+                'name': 'some-formula'
+            },
+            {
+                'source': 'git@github.com:test_organisation/another-formula.git',
+                'constraint': '>=v2.0',
+                'sourced_constraints': ['==v2.0'],
+                'organisation': 'test_organisation',
+                'name': 'another-formula'
+            },
+            None
+        ]
+        # PEP8 requires unused mock being used
+        mock_load_local_requirements.return_value = None
+        mock_load_local_metadata.return_value = None
+        mock_fetch_local_metadata.return_value = None
+
         testobj = ShakerMetadata()
         actual_result = testobj._parse_metadata_requirements(requirements)
-        
+
         self.assertEqual(actual_result,
-                        expected_result,
-                        "TestShakerMetadata::test__parse_metadata_requirements_raw: Mismatch\n"
-                        "Actual: %s\n"
-                        "Expected: %s\n\n"
-                        % (actual_result,
-                           expected_result))
-        
+                         expected_result,
+                         "TestShakerMetadata::test__parse_metadata_requirements_raw: Mismatch\n"
+                         "Actual: %s\nExpected: %s\n\n"
+                         % (actual_result,
+                            expected_result))
+
     @patch('shaker.shaker_metadata.ShakerMetadata._fetch_local_metadata')
     @patch('shaker.shaker_metadata.ShakerMetadata.load_local_metadata')
     @patch('shaker.shaker_metadata.ShakerMetadata.load_local_requirements')
     def test__parse_metadata_requirements_simple(self,
-                                              monk_load_local_requirements,
-                                              monk_load_local_metadata,
-                                              mock_fetch_local_metadata):
+                                                 mock_load_local_requirements,
+                                                 mock_load_local_metadata,
+                                                 mock_fetch_local_metadata):
         requirements = [
-                        'test_organisation/some-formula==v1.0',
-                        'test_organisation/another-formula>=v2.0'
-                        ]
-        
+            'test_organisation/some-formula==v1.0',
+            'test_organisation/another-formula>=v2.0'
+        ]
+
         expected_result = {
-                           'test_organisation/some-formula':
-                           {
-                                'source': 'git@github.com:test_organisation/some-formula.git',
-                                'constraint': '==v1.0',
-                                'sourced_constraints': [],
-                                'organisation': 'test_organisation',
-                                'name': 'some-formula'
-                            },
-                           'test_organisation/another-formula':
-                           {
-                                'source': 'git@github.com:test_organisation/another-formula.git',
-                                'constraint': '>=v2.0',
-                                'sourced_constraints': [],
-                                'organisation': 'test_organisation',
-                                'name': 'another-formula'
-                            }
-                           }
-        
+            'test_organisation/some-formula':
+            {
+                'source': 'git@github.com:test_organisation/some-formula.git',
+                'constraint': '==v1.0',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'some-formula'
+            },
+            'test_organisation/another-formula':
+            {
+                'source': 'git@github.com:test_organisation/another-formula.git',
+                'constraint': '>=v2.0',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'another-formula'
+            }
+        }
+
+        # PEP8 requires unused mock being used
+        mock_load_local_requirements.return_value = None
+        mock_load_local_metadata.return_value = None
+        mock_fetch_local_metadata.return_value = None
+
         testobj = ShakerMetadata()
         actual_result = testobj._parse_metadata_requirements(requirements)
-        
-        self.assertEqual(actual_result,
-                        expected_result,
-                        "TestShakerMetadata::test__parse_metadata_requirements_simple: Mismatch\n"
-                        "Actual: %s\n"
-                        "Expected: %s\n\n"
-                        % (actual_result,
-                           expected_result))
 
+        self.assertEqual(actual_result,
+                         expected_result,
+                         "TestShakerMetadata::test__parse_metadata_requirements_simple: Mismatch\n"
+                         "Actual: %s\nExpected: %s\n\n"
+                         % (actual_result, expected_result))
 
     @patch('shaker.shaker_metadata.ShakerMetadata._fetch_remote_file')
     @patch('shaker.shaker_metadata.ShakerMetadata.load_local_metadata')
@@ -382,23 +410,24 @@ class TestShakerMetadata(TestCase):
         sample_raw_requirements = (
             "git@github.com:test_organisation/test1-formula.git==v1.0.1\n"
             "git@github.com:test_organisation/test2-formula.git==v2.0.1\n"
-            )
-        
+        )
+
+        # PEP8 requires unused mock being used
+        mock_load_local_metadata.return_value = None
+
         expected_result = self._sample_sourced_dependencies_root_only.copy()
-        
+
         mock_fetch_remote_file.return_value = sample_raw_requirements
         org_name = "test-organisation"
         formula_name = "test1-formula"
         constraint = None
-        
+
         testobj = ShakerMetadata()
         data = testobj._fetch_remote_requirements(org_name, formula_name, constraint)
         self.assertEqual(data,
                          expected_result,
                          ("Dependency data mismatch:\nActual:%s\nExpected:%s\n\n"
-                          % (data,
-                            expected_result)))
-        
+                          % (data, expected_result)))
 
     @patch("shaker.shaker_metadata.ShakerMetadata._fetch_dependencies")
     @patch("shaker.shaker_metadata.ShakerMetadata.load_local_metadata")
@@ -427,13 +456,16 @@ class TestShakerMetadata(TestCase):
                 'name': 'testa-formula'
             }
         }
-        
+
+        # PEP8 requires unused mock being used
+        mock_load_local_metadata.return_value = None
+
         testobj = ShakerMetadata()
-        testobj.local_requirements=sample_root_requirements
-        testobj.root_metadata=sample_root_metadata
+        testobj.local_requirements = sample_root_requirements
+        testobj.root_metadata = sample_root_metadata
 
         ignore_local_requirements = False
-        ignore_dependency_requirements=False
+        ignore_dependency_requirements = False
         testobj.update_dependencies(ignore_local_requirements,
                                     ignore_dependency_requirements)
 
@@ -448,7 +480,7 @@ class TestShakerMetadata(TestCase):
                             sample_root_requirements
                             )
                          )
-        
+
     @patch("shaker.shaker_metadata.ShakerMetadata._fetch_dependencies")
     @patch("shaker.shaker_metadata.ShakerMetadata.load_local_metadata")
     def test_update_dependencies__use_metadata(self,
@@ -458,21 +490,15 @@ class TestShakerMetadata(TestCase):
         """
         TestShakerMetadata: Test we update dependencies using root metadata path
         """
-        sample_root_requirements = {
-            'test_organisation/testa-formula': {
-                'source': 'git@github.com:test_organisation/testa-formula.git',
-                'constraint': '==v1.0.1',
-                'organisation': 'test_organisation',
-                'name': 'testa-formula'
-            }
-        }
-        
+        # PEP8 requires unused mock being used
+        mock_load_local_metadata.return_value = None
+
         testobj = ShakerMetadata()
-        testobj.local_requirements={}
+        testobj.local_requirements = {}
         testobj.root_metadata = self._sample_metadata_root
 
         ignore_local_requirements = False
-        ignore_dependency_requirements=False
+        ignore_dependency_requirements = False
         testobj.update_dependencies(ignore_local_requirements,
                                     ignore_dependency_requirements)
 
@@ -481,22 +507,157 @@ class TestShakerMetadata(TestCase):
         self.assertEqual(testobj.dependencies,
                          self._sample_dependencies_root_only,
                          'Dependencies mismatch\n'
-                         'Actual:%s\n'
-                         'Expected:%s\n\n'
+                         'Actual:%s\nExpected:%s\n\n'
                          % (testobj.dependencies,
                             self._sample_dependencies_root_only
                             )
                          )
 
-    def test_fetch_dependencies_empty(self):
-        self.assertTrue(False, "TODO")
+    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_remote_metadata')
+    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_remote_requirements')
+    def test_fetch_dependencies__requirements_exist(self,
+                                                    mock_fetch_remote_requirements,
+                                                    mock_fetch_remote_metadata):
+        """
+        TestShakerMetadata:test_fetch_dependencies__requirements_exist: Get dependencies when requirements file exists
+        """
+        test_base_dependencies = {
+            'test_organisation/test1-formula':
+            {
+                'source': 'git@github.com:test_organisation/test1-formula.git',
+                'constraint': '==v1.0.1',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'test1-formula'
+            }
+        }
+        mock_fetch_remote_requirements.side_effect = [
+            ['test_organisation/test2-formula==v2.0.1'],
+            None
+        ]
 
-    def test_fetch_dependencies_append(self):
-        self.assertTrue(False, "TODO")
+        expected_dependencies = {
+            'test_organisation/test1-formula':
+            {
+                'sourced_constraints': ['==v1.0.1'],
+            },
+            'test_organisation/test2-formula':
+            {
+                'source': 'git@github.com:test_organisation/test2-formula.git',
+                'constraint': '==v2.0.1',
+                'sourced_constraints': ['==v2.0.1'],
+                'organisation': 'test_organisation',
+                'name': 'test2-formula'
+            }
+        }
+        mock_fetch_remote_metadata.return_value = None
+        tempobj = ShakerMetadata(autoload=False)
+        tempobj.dependencies = {}
+        tempobj._fetch_dependencies(test_base_dependencies,
+                                    ignore_dependency_requirements=False)
 
-    def test_fetch_dependencies_exists(self):
+        testfixtures.compare(tempobj.dependencies, expected_dependencies)
+
+    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_remote_metadata')
+    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_remote_requirements')
+    def test_fetch_dependencies__only_metadata_exists(self,
+                                                      mock_fetch_remote_requirements,
+                                                      mock_fetch_remote_metadata):
+        test_base_dependencies = {
+            'test_organisation/test1-formula':
+            {
+                'source': 'git@github.com:test_organisation/test1-formula.git',
+                'constraint': '==v1.0.1',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'test1-formula'
+            }
+        }
+        mock_fetch_remote_metadata.side_effect = [
+            {
+                "formula": "test_fetch_dependencies__only_metadata_exists",
+                'dependencies':
+                [
+                    "test_organisation/test2-formula==v2.0.1"
+                ]
+            },
+            None
+        ]
+
+        expected_dependencies = {
+            'test_organisation/test1-formula':
+            {
+                'sourced_constraints': ['==v1.0.1'],
+            },
+            'test_organisation/test2-formula':
+            {
+                'source': 'git@github.com:test_organisation/test2-formula.git',
+                'constraint': '==v2.0.1',
+                'sourced_constraints': ['==v2.0.1'],
+                'organisation': 'test_organisation',
+                'name': 'test2-formula'
+            }
+        }
+        mock_fetch_remote_requirements.return_value = None
+        tempobj = ShakerMetadata(autoload=False)
+        tempobj.dependencies = {}
+        tempobj._fetch_dependencies(test_base_dependencies,
+                                    ignore_dependency_requirements=False)
+
+        testfixtures.compare(tempobj.dependencies, expected_dependencies)
+
+    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_remote_metadata')
+    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_remote_requirements')
+    def test_fetch_dependencies__already_sourced(self,
+                                                 mock_fetch_remote_requirements,
+                                                 mock_fetch_remote_metadata):
         """
         TestShakerMetadata::test_fetch_dependencies_exists: Don't fetch dependencies if we've already sourced them
+        """
+        test_base_dependencies = {
+            'test_organisation/test1-formula':
+            {
+                'source': 'git@github.com:test_organisation/test1-formula.git',
+                'constraint': '==v1.0.1',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'test1-formula'
+            }
+        }
+        mock_fetch_remote_metadata.side_effect = [
+            {
+                'formula': 'test_organisation/test2-formula',
+                'dependencies':
+                [
+                    "test_organisation/test2-formula==v2.0.1"
+                ]
+            },
+            None
+        ]
+
+        expected_dependencies = {
+            'test_organisation/test1-formula':
+            {
+                'sourced_constraints': ['==v1.0.1'],
+            },
+        }
+        mock_fetch_remote_requirements.return_value = None
+        tempobj = ShakerMetadata(autoload=False)
+        tempobj.dependencies = {'test_organisation/test1-formula': {'sourced_constraints': ['==v1.0.1']}}
+        tempobj._fetch_dependencies(test_base_dependencies,
+                                    ignore_dependency_requirements=False)
+
+        testfixtures.compare(tempobj.dependencies, expected_dependencies)
+
+    def test_fetch_remote_file__requirements(self):
+        """
+        TestShakerMetadata::test_fetch_remote_file__requirements: Fetch a requirements file
+        """
+        self.assertTrue(False, "TODO")
+
+    def test_fetch_remote_file__metadata(self):
+        """
+        TestShakerMetadata::test_fetch_remote_file__requirements: Fetch a requirements file
         """
         self.assertTrue(False, "TODO")
 
@@ -524,4 +685,4 @@ class TestShakerMetadata(TestCase):
             tempobj.load_local_requirements(input_directory, input_filename)
             mock_path_exists.assert_called_once_with('./test')
             mopen.assert_called_once_with('./test', 'r')
-            compare(tempobj.local_requirements, self._sample_dependencies)
+            testfixtures.compare(tempobj.local_requirements, self._sample_dependencies)

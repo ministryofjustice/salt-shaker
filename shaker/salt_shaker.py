@@ -42,9 +42,6 @@ class Shaker(object):
 
 
     """
-    dynamic_modules_dirs = ['_modules', '_grains', '_renderers',
-                            '_returners', '_states']
-
     def __init__(self, root_dir, salt_root_path='vendor',
                  clone_path='formula-repos', salt_root='_root'):
         """
@@ -76,17 +73,19 @@ class Shaker(object):
         """
         logger.Logger().info("Shaker: Updating the formula requirements...")
 
-        self._shaker_metadata.update_dependencies()
+        self._shaker_metadata.update_dependencies(ignore_local_requirements=True)
         self._shaker_remote = ShakerRemote(self._shaker_metadata.dependencies)
         self._shaker_remote.update_dependencies()
 
-    def install_requirements(self, simulate=False):
+    def install_requirements(self,
+                             overwrite=False,
+                             simulate=False):
         """
         Install all of the versioned requirements found
         """
         if not simulate:
             logger.Logger().info("Shaker: Installing dependencies...")
-            self._shaker_remote.install_dependencies(overwrite=True)
+            self._shaker_remote.install_dependencies(overwrite=overwrite)
             logger.Logger().info("Shaker: Writing requirements file...")
             self._shaker_remote.write_requirements(overwrite=True, backup=True)
         else:
@@ -128,10 +127,12 @@ def shaker(root_dir='.',
                              "All dependencies will be "
                              "re-calculated from the metadata")
         shaker_instance.update_requirements()
+        shaker_instance.install_requirements(overwrite=True,
+                                             simulate=simulate)
     else:
         logger.Logger().info("Shaker: Refreshing..."
                              "Dependencies will be refreshed "
                              "from the stored formula requirements")
         shaker_instance.load_requirements()
-
-    shaker_instance.install_requirements(simulate=simulate)
+        shaker_instance.install_requirements(overwrite=False,
+                                             simulate=simulate)
