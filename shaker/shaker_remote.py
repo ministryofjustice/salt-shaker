@@ -95,11 +95,19 @@ class ShakerRemote:
                 return False
             elif backup:
                 newpath = "%s.%s" % (path, time.time())
-                os.rename(path, newpath)
-                shaker.libs.logger.Logger().info('ShakerMetadata::write_requirements: '
-                                                 ' File exists, renaming %s to %s.'
-                                                 % (path,
-                                                    newpath))
+                try:
+                    os.rename(path, newpath)
+                    shaker.libs.logger.Logger().info('ShakerMetadata::write_requirements: '
+                                                     ' File exists, renaming %s to %s.'
+                                                     % (path,
+                                                        newpath))
+                except OSError as e:
+                    shaker.libs.logger.Logger().error('ShakerMetadata::write_requirements: '
+                                                      ' Problem renaming file %s to %s: %s'
+                                                      % (path,
+                                                         newpath,
+                                                         e.message))
+                    return False
 
         with open(path, 'w') as outfile:
             requirements = self.get_requirements()

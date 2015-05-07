@@ -28,10 +28,11 @@ class TestShakerRemote(TestCase):
             'name': 'test3-formula'
         }
     }
-    
+
     _sample_requirements = ("git@github.com:test_organisation/test1-formula.git==v1.0.1\n"
                             "git@github.com:test_organisation/test2-formula.git==v2.0.1\n"
                             "git@github.com:test_organisation/test3-formula.git==v3.0.1\n")
+
     def setUp(self):
         TestCase.setUp(self)
 
@@ -60,17 +61,18 @@ class TestShakerRemote(TestCase):
         mock_path_exists.return_value = True
         testobj.write_requirements(output_directory,
                                    output_filename,
-                                   overwrite=True)
+                                   overwrite=True,
+                                   backup=False)
         mock_open.assert_called_once_with(output_path, 'w')
         mock_write.assert_called_once(self._sample_requirements)
-        
+
     @patch('os.write')
     @patch('__builtin__.open')
     @patch('os.path.exists')
     def test_write_requirements__simple(self,
-                                mock_path_exists,
-                                mock_open,
-                                mock_write):
+                                        mock_path_exists,
+                                        mock_open,
+                                        mock_write):
         """
         TestShakerMetadata: Test resolved dependency are correctly written out to file
         """
@@ -86,7 +88,8 @@ class TestShakerRemote(TestCase):
         mock_path_exists.return_value = False
         testobj.write_requirements(output_directory,
                                    output_filename,
-                                   overwrite=False)
+                                   overwrite=False,
+                                   backup=False)
         mock_open.assert_called_once_with(output_path, 'w')
         mock_write.assert_called_once(self._sample_requirements)
 
@@ -107,7 +110,9 @@ class TestShakerRemote(TestCase):
 
         # Don't overwrite an existing file
         mock_path_exists.return_value = True
-        testobj.write_requirements(output_filename, overwrite=False)
+        testobj.write_requirements(output_filename,
+                                   overwrite=False,
+                                   backup=False)
         self.assertFalse(mock_open.called, ("With overwrite disabled, "
                                             "we shouldn't have called to open"))
         self.assertFalse(mock_write.called, ("With overwrite disabled, "
