@@ -1,14 +1,12 @@
-import os
-import yaml
 from unittest import TestCase
-import mock
-from mock import MagicMock
 from mock import patch
+from mock import mock_open
 from nose.tools import raises
 
-import responses
 import logging
+import shaker.libs.logger
 from shaker.shaker_metadata import ShakerMetadata
+from testfixtures import compare
 
 
 class TestShakerMetadata(TestCase):
@@ -41,12 +39,12 @@ class TestShakerMetadata(TestCase):
         ]
     }
     _sample_requirements_root = {
-            "git@github.com:test_organisation/testa-formula.git==v1.0.1",
-            "git@github.com:test_organisation/testb-formula.git==v2.0.1",
+        "git@github.com:test_organisation/testa-formula.git==v1.0.1",
+        "git@github.com:test_organisation/testb-formula.git==v2.0.1",
     }
 
     _sample_requirements_testa = {
-            "git@github.com:test_organisation/testc-formula.git==v3.0.1",
+        "git@github.com:test_organisation/testc-formula.git==v3.0.1",
     }
 
     _sample_requirements_testb = {
@@ -492,32 +490,38 @@ class TestShakerMetadata(TestCase):
 
     def test_fetch_dependencies_empty(self):
         self.assertTrue(False, "TODO")
-        
+
     def test_fetch_dependencies_append(self):
         self.assertTrue(False, "TODO")
-        
+
     def test_fetch_dependencies_exists(self):
         """
         TestShakerMetadata::test_fetch_dependencies_exists: Don't fetch dependencies if we've already sourced them
         """
-        
         self.assertTrue(False, "TODO")
-        
 
-    @patch("shaker.shaker_metadata.ShakerMetadata.load_local_metadata")
+    @patch('os.path.exists')
     def test_load_local_requirements(self,
-                                     mock_load_local_metadata):
+                                     mock_path_exists
+                                     ):
         """
         TestShakerMetadata::test_load_local_requirements: Test loading from local dependency file
         """
         # Setup
-        mock_load_local_metadata.return_value = self._sample_requirements_file
-        testobj = ShakerMetadata()
-        testobj.load_local_requirements('./tests/files', 'requirements.txt')
-        self.assertEqual(testobj.dependencies,
-                         self._sample_dependencies,
-                         "Loaded dependencies mismatch \n\n"
-                         "%s\n\n"
-                         "%s\n\n"
-                         % (testobj.local_requirements,
-                            self._sample_dependencies))
+        mock_path_exists.return_value = True
+        text_file_data = '\n'.join(["git@github.com:test_organisation/test1-formula.git==v1.0.1",
+                                    "git@github.com:test_organisation/test2-formula.git==v2.0.1",
+                                    "git@github.com:test_organisation/test3-formula.git==v3.0.1"])
+        with patch('__builtin__.open',
+                   mock_open(read_data=()),
+                   create=True) as mopen:
+            mopen.return_value.__iter__.return_value = text_file_data.splitlines()
+
+            shaker.libs.logger.Logger().setLevel(logging.DEBUG)
+            tempobj = ShakerMetadata(autoload=False)
+            input_directory = '.'
+            input_filename = 'test'
+            tempobj.load_local_requirements(input_directory, input_filename)
+            mock_path_exists.assert_called_once_with('./test')
+            mopen.assert_called_once_with('./test', 'r')
+            compare(tempobj.local_requirements, self._sample_dependencies)

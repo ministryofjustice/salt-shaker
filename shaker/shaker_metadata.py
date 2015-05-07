@@ -8,6 +8,7 @@ import yaml
 from shaker.libs.errors import ShakerConfigException
 import shaker.libs.github
 import shaker.libs.metadata
+import shaker.libs.logger
 
 
 class ShakerMetadata:
@@ -67,19 +68,23 @@ class ShakerMetadata:
 
     def __init__(self,
                  working_directory='.',
-                 metadata_filename='metadata.yml'):
+                 metadata_filename='metadata.yml',
+                 autoload=True):
         """
         Initialise the instance from a metadata config file
 
         Args:
             working_directory(string): The directory of the metadata file
             metadata_filename(string): The filename of the metadata file
+            autoload(bool): If True, then try to load local data, do nothing
+                on False
         """
         self.working_directory = working_directory
         self.metadata_filename = metadata_filename
         self.requirements_filename = metadata_filename
-        self.load_local_metadata()
-        self.load_local_requirements()
+        if autoload:
+            self.load_local_metadata()
+            self.load_local_requirements()
 
     def load_local_metadata(self):
         """
@@ -175,16 +180,19 @@ class ShakerMetadata:
             return False
         else:
             with open(path, 'r') as infile:
-                loaded_dependencies = infile.readlines()
-                if len(loaded_dependencies) > 0:
-                    self.local_requirements = self._parse_metadata_requirements(loaded_dependencies)
-                    return True
-                else:
-                    shaker.libs.logger.Logger().warning("ShakerMetadata::load_local_requirements: "
-                                                        "File '%s' empty %s"
-                                                        % (path,
-                                                           loaded_dependencies))
-                    return False
+                loaded_dependencies = []
+                for line in infile:
+                    loaded_dependencies.append(line)
+
+            if len(loaded_dependencies) > 0:
+                self.local_requirements = self._parse_metadata_requirements(loaded_dependencies)
+                return True
+            else:
+                shaker.libs.logger.Logger().warning("ShakerMetadata::load_local_requirements: "
+                                                    "File '%s' empty %s"
+                                                    % (path,
+                                                       loaded_dependencies))
+                return False
 
         return True
 

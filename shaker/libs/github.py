@@ -70,14 +70,13 @@ def parse_github_url(url):
         'name': name,
         'organisation': organisation,
         'constraint': constraint,
-        }
+    }
     return info
 
 
 def get_tags(org_name, formula_name):
     def convert_tagname(tag):
         try:
-            retag = None
             if '-' in tag:
                 parsed_tag = tag.split('-')
                 semver_tag = parsed_tag[0]
@@ -109,7 +108,6 @@ def get_tags(org_name, formula_name):
     tags_json = requests.get(tags_url,
                              auth=(github_token, 'x-oauth-basic'))
     # Check for successful access and any credential problems
-    
     if validate_github_access(tags_json):
         try:
             tags_data = json.loads(tags_json.text)
@@ -117,12 +115,13 @@ def get_tags(org_name, formula_name):
             tag_versions.sort(key=convert_tagname)
             wanted_tag = 'v{0}'.format(tag_versions[-1])
         except ValueError as e:
-            msg = ("helpers.github::get_tags: Invalid json for url '%s'"
-                   % (tags_url))
+            msg = ("helpers.github::get_tags: Invalid json for url '%s': %s"
+                   % (tags_url,
+                      e.message))
             raise ValueError(msg)
     else:
         wanted_tag = 'master'
-    
+
     logging.getLogger(__name__).debug("get_tags(%s, %s) => %s, %s"
                                       % (org_name, formula_name, wanted_tag, tag_versions))
     return wanted_tag, tag_versions, tags_data
@@ -130,11 +129,11 @@ def get_tags(org_name, formula_name):
 
 def resolve_constraint_to_object(org_name, formula_name, constraint):
     """
-    For a given formula, take the constraint and compare it to 
+    For a given formula, take the constraint and compare it to
     the repositories available tags. Then try to find a tag that
-    best resolves within the constraint. 
+    best resolves within the constraint.
 
-    If we can get resolutions, return the json data object associated 
+    If we can get resolutions, return the json data object associated
     with the tag. If not, then raise a ConstraintResolutionException
 
     Args:
@@ -153,7 +152,7 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
 
     if not constraint or (constraint == ''):
         logging.getLogger('helpers.github').debug("No constraint specified, returning '%s'"
-                                                          % (wanted_tag))
+                                                  % (wanted_tag))
         obj = None
         for tag_data in tags_data:
             if tag_data["name"] == wanted_tag:
@@ -194,7 +193,7 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                     if (tag_version >= parsed_version):
                         valid_version = tag_version
                         break
-        
+
             elif parsed_comparator == '<=':
                 for tag_version in reversed(tag_versions):
                     if (tag_version <= parsed_version):
@@ -203,7 +202,7 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
             else:
                 msg = ("Unknown comparator '%s'" % (parsed_comparator))
                 raise ConstraintResolutionException(msg)
-                
+
             if valid_version:
                 logging.getLogger('helpers.github').debug("resolve_constraint_to_object:Found valid version '%s'"
                                                           % (valid_version))
@@ -221,13 +220,14 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
     else:
         msg = ("Unknown parsed constraint '%s' from '%s'" % (parsed_constraint, constraint))
         raise ConstraintResolutionException(msg)
-    raise ConstraintResolutionException('Constraint {} cannot be satisfied for {}/{}'.format(
-                                                                                             constraint, org_name, formula_name))
+    raise ConstraintResolutionException('Constraint {} cannot be satisfied for {}/{}'.format(constraint,
+                                                                                             org_name,
+                                                                                             formula_name))
 
     return None
 
 
-def get_valid_github_token(online_validation_enabled = False):
+def get_valid_github_token(online_validation_enabled=False):
     """
     Check for a github token environment variable. If its not there,
     or is invalid, log a message and return None. Otherwise, return the token string
@@ -399,11 +399,11 @@ def install_source(target_source,
     target_path = os.path.join(target_directory,
                                target_name)
     logging.getLogger(__name__).debug("install_source: Opening %s in directory %s, "
-                                     "with url %s, and sha %s"
-                                     % (target_name,
-                                        target_directory,
-                                        target_url,
-                                        target_sha))
+                                      "with url %s, and sha %s"
+                                      % (target_name,
+                                         target_directory,
+                                         target_url,
+                                         target_sha))
     target_repository = open_repository(target_url, target_path)
 
     oid = pygit2.Oid(hex=target_sha)
@@ -419,18 +419,18 @@ def install_source(target_source,
 
     if target_repository.head.get_object().hex != target_sha:
         logging.info("Resetting sha mismatch on source '%s'"
-                                                        % (target_name))
+                     % (target_name))
         target_repository.reset(target_sha, pygit2.GIT_RESET_HARD)
         # repo.head.reset(commit=sha, index=True, working_tree=True)
 
     logging.getLogger('helpers.github').info("Source '%s' is at version '%s'"
-                                              % (target_name, target_sha))
+                                             % (target_name, target_sha))
 
     return True
 
 
 def resolve_tag_to_sha(target_source,
-                       target_version, 
+                       target_version,
                        target_directory):
     """
     Try to resolve the revision into a SHA. If rev is a tag or a SHA then
@@ -444,7 +444,6 @@ def resolve_tag_to_sha(target_source,
     # If none of the above, try it as a straight sha
     target_name = target_source.get('name', None)
     target_url = target_source.get('source', None)
-    target_sha = target_source.get('sha', None)
     target_path = os.path.join(target_directory,
                                target_name)
 
@@ -466,8 +465,10 @@ def resolve_tag_to_sha(target_source,
         if tag_ref in refs:
             sha = repository.lookup_reference(tag_ref).get_object().hex
             logging.getLogger(__name__).debug("resolve_tag_to_sha: "
-                                                      "Found sha '%s' for tag '%s'"
-                                                      % (sha, tag_ref))
+                                              "Found sha '%s' for tag '%s' on attempt"
+                                              % (sha,
+                                                 tag_ref,
+                                                 attempt))
             return sha
 
         # Next check for a branch - if it is one then we want to update
@@ -480,8 +481,8 @@ def resolve_tag_to_sha(target_source,
             if full_ref:
                 sha = full_ref.get_object().hex
                 logging.getLogger(__name__).debug("resolve_tag_to_sha: "
-                                                      "Found sha '%s' for branch '%s'"
-                                                      % (sha, tag_ref))
+                                                  "Found sha '%s' for branch '%s'"
+                                                  % (sha, tag_ref))
                 return sha
 
         # Could just be a SHA
@@ -496,19 +497,18 @@ def resolve_tag_to_sha(target_source,
             pass
 
         logging.getLogger(__name__).debug("resolve_tag_to_sha: "
-                                                      "Cannot find version '%s' in refs '%s'"
-                                                      % (target_version, refs))
+                                          "Cannot find version '%s' in refs '%s'"
+                                          % (target_version, refs))
     return None
 
 
 def get_repository_info(repository):
     repo = pygit2.Repository(repository)
- 
     objects = {
         'tags': [],
         'commits': [],
     }
- 
+
     for objhex in repo:
         obj = repo[objhex]
         if obj.type == pygit2.GIT_OBJ_COMMIT:
@@ -540,14 +540,13 @@ def get_repository_info(repository):
                 'tagger_email': obj.tagger.email,
             })
         elif obj.type == pygit2.GIT_OBJ_TREE:
-                objects['tree'].append({
-                'hex': obj.hex,
-                'name': obj.name,
-                'message': obj.message,
-                'target': base64.b16encode(obj.target).lower(),
-                'tagger_name': obj.tagger.name,
-                'tagger_email': obj.tagger.email,
-            })
+                objects['tree'].append({'hex': obj.hex,
+                                        'name': obj.name,
+                                        'message': obj.message,
+                                        'target': base64.b16encode(obj.target).lower(),
+                                        'tagger_name': obj.tagger.name,
+                                        'tagger_email': obj.tagger.email,
+                                        })
         else:
             # ignore blobs and trees
             pass

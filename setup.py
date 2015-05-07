@@ -18,6 +18,6 @@ setup(
     tests_require=[
         'responses',
     ],
-    setup_requires=['nose>=1.0'],
+    setup_requires=['nose>=1.0', 'testfixtures'],
     scripts=['scripts/salt-shaker'],
 )
