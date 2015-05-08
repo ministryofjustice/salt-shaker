@@ -99,8 +99,6 @@ def setup_logging(level):
     # Initialise the default app logging
     logger.Logger('salt-shaker')
     logger.Logger().setLevel(level)
-    logging.getLogger('shaker.helpers.github').setLevel(level)
-    logging.getLogger('shaker.helpers.metadata').setLevel(level)
 
 
 def shaker(root_dir='.',
