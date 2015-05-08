@@ -3,10 +3,13 @@ from mock import patch
 from mock import mock_open
 from nose.tools import raises
 import testfixtures
+import responses
+import json
 
 import logging
 import shaker.libs.logger
 from shaker.shaker_metadata import ShakerMetadata
+from shaker.libs.errors import GithubRepositoryConnectionException
 
 
 class TestShakerMetadata(TestCase):
@@ -649,17 +652,89 @@ class TestShakerMetadata(TestCase):
 
         testfixtures.compare(tempobj.dependencies, expected_dependencies)
 
-    def test_fetch_remote_file__requirements(self):
+    @raises(GithubRepositoryConnectionException)
+    @patch('shaker.libs.github.validate_github_access')
+    @patch('shaker.libs.github.resolve_constraint_to_object')
+    @patch('shaker.libs.github.get_valid_github_token')
+    def test_fetch_remote_file__no_valid_object(self,
+                                                mock_get_valid_github_token,
+                                                mock_resolve_constraint_to_object,
+                                                mock_validate_github_access):
         """
-        TestShakerMetadata::test_fetch_remote_file__requirements: Fetch a requirements file
+        TestShakerMetadata::test_fetch_remote_file__no_valid_object: Check for exception when no valid object
         """
-        self.assertTrue(False, "TODO")
+        mock_get_valid_github_token.return_value = True
+        mock_resolve_constraint_to_object.return_value = None
+        mock_validate_github_access.return_value = True
+        tempobj = ShakerMetadata(autoload=False)
+        tempobj._fetch_remote_file("fake", "fake", "fake", "fake")
+        # Looking for exception, assert not needed
+        self.assertTrue(False, "N/A")
 
-    def test_fetch_remote_file__metadata(self):
+    @patch('shaker.libs.github.validate_github_access')
+    @patch('shaker.libs.github.resolve_constraint_to_object')
+    @patch('shaker.libs.github.get_valid_github_token')
+    def test_fetch_remote_file__bad_access(self,
+                                           mock_get_valid_github_token,
+                                           mock_resolve_constraint_to_object,
+                                           mock_validate_github_access):
         """
-        TestShakerMetadata::test_fetch_remote_file__requirements: Fetch a requirements file
+        TestShakerMetadata::test_fetch_remote_file__bad_access: Check for None on problem accessing github
         """
-        self.assertTrue(False, "TODO")
+        mock_get_valid_github_token.return_value = True
+        mock_resolve_constraint_to_object.return_value = {
+            "name": "v5.2.0",
+            "commit": {
+                "sha": "FAKE",
+                "url": "https://api.github.com/repos/fake"
+            }
+        }
+
+        mock_validate_github_access.return_value = False
+        tempobj = ShakerMetadata(autoload=False)
+        return_val = tempobj._fetch_remote_file("FAKE", "FAKE", "FAKE", "FAKE")
+        self.assertEqual(return_val, None, "Should get None type on bad github access")
+
+    @responses.activate
+    @patch('shaker.libs.github.validate_github_access')
+    @patch('shaker.libs.github.resolve_constraint_to_object')
+    @patch('shaker.libs.github.get_valid_github_token')
+    def test_fetch_remote_file__good_access(self,
+                                            mock_get_valid_github_token,
+                                            mock_resolve_constraint_to_object,
+                                            mock_validate_github_access):
+        """
+        TestShakerMetadata::test_fetch_remote_file__bad_access: Check for good access
+        """
+        mock_get_valid_github_token.return_value = True
+        mock_resolve_constraint_to_object.return_value = {
+            "name": "v1.0.0",
+            "commit": {
+                "sha": "FAKE",
+                "url": "https://api.github.com/repos/fake"
+            }
+        }
+        mock_response = {
+            "name": "v1.0.0",
+            "commit": {
+                "sha": "fakesha",
+                "url": "https://fakeurl"
+            },
+        }
+        responses.add(
+            responses.GET,
+            "https://raw.githubusercontent.com/FAKE/FAKE/v1.0.0/FAKE",
+            content_type="application/json",
+            body=json.dumps(mock_response)
+        )
+        mock_validate_github_access.return_value = True
+        tempobj = ShakerMetadata(autoload=False)
+        expected_return = mock_response
+        return_val = tempobj._fetch_remote_file("FAKE", "FAKE", "FAKE", "FAKE")
+        self.assertEqual(return_val,
+                         expected_return,
+                         "Metadata mismatch\nActual:'%s'\nExpected:'%s'"
+                         % (return_val, expected_return))
 
     @patch('os.path.exists')
     def test_load_local_requirements(self,

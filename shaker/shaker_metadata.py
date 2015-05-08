@@ -635,7 +635,8 @@ class ShakerMetadata:
                                 auth=(github_token, 'x-oauth-basic')
                                 )
         if shaker.libs.github.validate_github_access(raw_data):
-            return raw_data.content
+            dict = yaml.load(raw_data.content)
+            return dict
         else:
             shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_file: "
                                               "Could not validate github access to '%s'"
@@ -705,7 +706,7 @@ class ShakerMetadata:
                                               "Metadata null")
 
             raise ShakerConfigException
-        
+
         return parsed_metadata_dependencies
 
     def _add_dependency_sourced(self,

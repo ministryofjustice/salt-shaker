@@ -2,7 +2,6 @@ import shaker.libs.logger
 import shaker.libs.github
 import os
 import errno
-import time
 import shutil
 
 
@@ -20,7 +19,6 @@ class ShakerRemote:
     _working_directory = ''
     _install_directory = ''
     _salt_root = ''
-    _logger = None
     _dynamic_modules_dirs = ['_modules', '_grains', '_renderers',
                              '_returners', '_states']
 
@@ -33,21 +31,20 @@ class ShakerRemote:
         self._working_directory = working_directory
         self._install_directory = install_directory
         self._salt_root = salt_root
-        self._logger = shaker.libs.logger.Logger()
 
     def update_dependencies(self):
         """
         Update the list of targets with actual git sha
         targets from the dictionary of dependencies
         """
-        self._logger.debug("ShakerRemote::update_dependencies: "
-                           "Updating the dependencies \n%s\n\n"
-                           % (self._dependencies))
+        shaker.libs.logger.Logger().debug("ShakerRemote::update_dependencies: "
+                                          "Updating the dependencies \n%s\n\n"
+                                          % (self._dependencies.keys()))
         for dependency in self._dependencies.values():
             target_sha = self._resolve_constraint_to_sha(dependency)
-            self._logger.debug("ShakerRemote::update_dependencies: "
-                               "Found sha '%s'"
-                               % (target_sha))
+            shaker.libs.logger.Logger().debug("ShakerRemote::update_dependencies: "
+                                              "Found sha '%s'"
+                                              % (target_sha))
             if target_sha:
                 dependency["sha"] = target_sha
 
@@ -75,14 +72,12 @@ class ShakerRemote:
             dependency_name = dependency.get("name", None)
             success = shaker.libs.github.install_source(dependency,
                                                         install_dir)
-            self._logger.debug("ShakerRemote::install_dependencies: "
+            shaker.libs.logger.Logger().debug("ShakerRemote::install_dependencies: "
                                "Installed '%s to directory '%s': %s"
                                % (dependency_name,
                                   install_dir,
                                   success))
             if success:
-                # Do linking of modules
-                self._link_dynamic_modules(dependency)
                 successful_updates += 1
             else:
                 unsuccessful_updates += 1
@@ -105,6 +100,8 @@ class ShakerRemote:
                                                 pathname)
                         shutil.rmtree(fullpath)
 
+        # Do linking of modules
+        self._update_root_links()
         return (successful_updates, unsuccessful_updates)
 
     def write_requirements(self,
@@ -162,12 +159,34 @@ class ShakerRemote:
 
         return False
 
-    def _link_dynamic_modules(self, dependency):
-        dependency_name = dependency.get("name")
+    def _update_root_links(self):
+        for dependency_info in self._dependencies.values():
+            shaker.libs.logger.Logger().debug("ShakerRemote::_update_root_links: "
+                               "Updating '%s"
+                               % (dependency_info))
+            name = dependency_info.get('name', None)
+            target = os.path.join(self._working_directory,
+                                  self._salt_root,
+                                  name)
+            source = os.path.join(self._working_directory,
+                                  self._install_directory,
+                                  name)
+            if os.path.exists(target):
+                msg = ("ShakerRemote::_update_root_links: "
+                       "Target '%s' conflicts with something else"
+                       % (name, target))
+                raise IOError(msg)
 
-        repo_dir = os.path.join(self._working_directory,
-                                self._install_directory,
-                                dependency_name)
+            if os.path.exists(source):
+                relative_source = os.path.relpath(source, os.path.dirname(target))
+                os.symlink(relative_source, target)
+                self._link_dynamic_modules(name)
+
+    def _link_dynamic_modules(self, dependency_name):
+        shaker.libs.logger.Logger().debug("ShakerRemote::_link_dynamic_modules(%s) "
+                                          % (dependency_name))
+
+        repo_dir = os.path.join(self._working_directory, self._install_directory, dependency_name)
 
         for libdir in self._dynamic_modules_dirs:
             targetdir = os.path.join(self._working_directory,
@@ -176,29 +195,25 @@ class ShakerRemote:
             sourcedir = os.path.join(repo_dir, libdir)
 
             relative_source = os.path.relpath(sourcedir, targetdir)
+
             if os.path.isdir(sourcedir):
-                self._logger.debug("ShakerRemote::_link_dynamic_modules: "
-                                   "Found source directory '%s"
-                                   % (sourcedir))
                 for name in os.listdir(sourcedir):
                     if not os.path.isdir(targetdir):
                         os.mkdir(targetdir)
                     sourcefile = os.path.join(relative_source, name)
                     targetfile = os.path.join(targetdir, name)
                     try:
-                        self.logger.debug("linking {}".format(sourcefile))
+                        shaker.libs.logger.Logger().debug("ShakerRemote::_link_dynamic_modules"
+                                                          "linking %s"
+                                                          % (sourcefile))
                         os.symlink(sourcefile, targetfile)
                     except OSError as e:
                         if e.errno == errno.EEXIST:  # already exist
-                            self.logger.debug(
-                                "skipping to linking {} as there is a file with higher priority already there".
-                                format(sourcefile))
+                            shaker.libs.logger.Logger().warning("ShakerRemote::_link_dynamic_modules: "
+                                                                "Not linking %s as link already exists"
+                                                                % (sourcefile))
                         else:
                             raise
-            else:
-                raise IOError("ShakerRemote::_link_dynamic_modules: "
-                              "Source directory '%s' not found"
-                              % (sourcedir))
 
     def _resolve_constraint_to_sha(self,
                                    dependency):
@@ -216,7 +231,7 @@ class ShakerRemote:
         if target_obj:
             dependency["version"] = target_obj['name']
             dependency["sha"] = target_obj["commit"]['sha']
-            self._logger.debug("_resolve_constraint_to_sha(%s) Found version '%s' and sha '%s'"
+            shaker.libs.logger.Logger().debug("_resolve_constraint_to_sha(%s) Found version '%s' and sha '%s'"
                                % (dependency.get('name', ''),
                                   dependency["version"],
                                   dependency["sha"]))
@@ -237,7 +252,7 @@ class ShakerRemote:
                                       self._salt_root)
         if os.path.exists(salt_root_path):
             shutil.rmtree(salt_root_path)
-            self._logger.debug("_create_directories: Deleting salt root directory '%s'"
+            shaker.libs.logger.Logger().debug("_create_directories: Deleting salt root directory '%s'"
                                % (salt_root_path))
         os.makedirs(salt_root_path)
 
@@ -247,7 +262,7 @@ class ShakerRemote:
 
         if not os.path.exists(install_path):
             try:
-                self._logger.debug("_create_directories: Creating repository directory '%s'"
+                shaker.libs.logger.Logger().debug("_create_directories: Creating repository directory '%s'"
                                    % (install_path))
                 os.makedirs(install_path)
             except OSError as e:
@@ -255,7 +270,7 @@ class ShakerRemote:
                                   % (install_path, e))
         elif overwrite and os.path.exists(install_path):
             shutil.rmtree(install_path)
-            self._logger.debug("_create_directories: Deleting repository directory '%s'"
+            shaker.libs.logger.Logger().debug("_create_directories: Deleting repository directory '%s'"
                                % (install_path))
             os.makedirs(install_path)
 

@@ -364,12 +364,6 @@ class TestGithub(unittest.TestCase):
                                                                    constraint)
         self.assertTrue(False, "TODO")
 
-    def test_resolve_tag_to_sha(self):
-        """
-        TestGithub::resolve_tag_to_sha: Test that we can resolve a tag to a sha
-        """
-        self.assertTrue(False, "TODO")
-
     @responses.activate
     def test_get_tags(self):
         responses.add(responses.GET,
