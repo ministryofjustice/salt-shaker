@@ -79,7 +79,8 @@ class Shaker(object):
 
     def install_requirements(self,
                              overwrite=False,
-                             simulate=False):
+                             simulate=False
+                             ):
         """
         Install all of the versioned requirements found
         """
@@ -87,7 +88,7 @@ class Shaker(object):
             logger.Logger().info("Shaker: Installing dependencies...")
             self._shaker_remote.install_dependencies(overwrite=overwrite)
             logger.Logger().info("Shaker: Writing requirements file...")
-            self._shaker_remote.write_requirements(overwrite=True, backup=True)
+            self._shaker_remote.write_requirements(overwrite=True, backup=False)
         else:
             requirements = '\n'.join(self._shaker_remote.get_requirements())
             logger.Logger().warning("Shaker: Simulation mode enabled, "
