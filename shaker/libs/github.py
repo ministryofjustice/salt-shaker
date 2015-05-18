@@ -77,6 +77,69 @@ def parse_github_url(url):
     return info
 
 
+def parse_semver_tag(tag):
+    """
+    Convert a tag name into a list of semver compliant data
+    Formats must be of the form,
+        v{major}.{minor}.{patch}(-postfix)
+    eg,
+        v1.2.3
+        v1.2.3-prerelease_tag1
+
+    Args:
+        tag(string): The tag to convert
+
+    Returns:
+        list: List of semver compliant data of form,
+            [major_version, minor_version, patch_version, (posfix-tag)]
+            Or return an empty list if the tag could not be parsed.
+    """
+    retval = {
+              "major": None,
+                  "minor": None,
+                  "patch": None,
+                  "postfix": None
+                  }
+    if '-' in tag:
+        parsed_results = parse('v{major}.{minor}.{patch}-{postfix}', tag)
+        if not parsed_results:
+            shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
+                                            "Failed to parse pre-release %s'"
+                                            % (tag))
+            return retval
+
+        retval = {
+                  "major": parsed_results["major"],
+                  "minor": parsed_results["minor"],
+                  "patch": parsed_results["patch"],
+                  "postfix": parsed_results["postfix"]
+                  }
+        shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
+                                            "Found %s'"
+                                            % (retval))
+        return retval
+    else:
+        parsed_results = parse('v{major}.{minor}.{patch}', tag)
+        if not parsed_results:
+            shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
+                                            "Failed to parse release %s'"
+                                            % (tag))
+            return retval
+
+        retval = {
+                  "major": parsed_results["major"],
+                  "minor":parsed_results["minor"],
+                  "patch":parsed_results["patch"],
+                  "postfix":None
+                  }
+        shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
+                                            "Found %s'"
+                                            % (retval))
+        return retval
+
+    return retval
+
+
 def convert_tag_to_semver(tag):
     """
     Convert a tag name into a list of semver compliant data
@@ -94,37 +157,14 @@ def convert_tag_to_semver(tag):
             [major_version, minor_version, patch_version, (posfix-tag)]
             Or return an empty list if the tag could not be parsed.
     """
-    # Strip any leading 'v' from release/pre-release tags
-    if '-' in tag:
-        parsed_results = parse('v{maj}.{min}.{patch}-{postfix}', tag)
-        if not parsed_results:
-            shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
-                                            "Failed to parse pre-release %s'"
-                                            % (tag))
-            return []
-
-        rettag = [parsed_results["maj"],
-                  parsed_results["min"],
+    parsed_results = parse_semver_tag(tag)
+    rettag = [parsed_results["major"],
+                  parsed_results["minor"],
                   parsed_results["patch"],
                   parsed_results["postfix"]
                   ]
-        shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
-                                            "Found %s'"
-                                            % (rettag))
-        return rettag
-    else:
-        parsed_results = parse('v{maj}.{min}.{patch}', tag)
-        if not parsed_results:
-            shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
-                                            "Failed to parse release %s'"
-                                            % (tag))
-            return []
-
-        rettag = [parsed_results["maj"], parsed_results["min"], parsed_results["patch"]]
-        shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
-                                            "Found %s'"
-                                            % (rettag))
-        return rettag
+ 
+    return rettag
 
 
 def get_valid_tags(org_name,
@@ -182,7 +222,13 @@ def get_valid_tags(org_name,
                                       % (raw_name))
 
             tag_versions.sort()
-            wanted_tag = 'v{0}'.format(tag_versions[-1])
+            wanted_version = get_latest_tag(tag_versions,
+                                            include_prereleases=False)
+            if wanted_version:
+                wanted_tag = 'v{0}'.format(wanted_version)
+            else:
+                wanted_tag = None
+
         except ValueError as e:
             msg = ("github::get_valid_tags: "
                    "Invalid json for url '%s': %s"
@@ -190,12 +236,28 @@ def get_valid_tags(org_name,
                       e.message))
             raise ValueError(msg)
     else:
-        wanted_tag = 'master'
+        wanted_tag = None
 
     shaker.libs.logger.Logger().debug("github::get_valid_tags: "
                                      "wanted_tag=%s, tag_versions=%s"
                                     % (wanted_tag, tag_versions))
     return wanted_tag, tag_versions, tags_data
+
+
+def get_latest_tag(tag_versions,
+                   include_prereleases=False):
+    """
+
+    """
+    tag_versions.sort()
+    for tag_version in reversed(tag_versions):
+        if not include_prereleases:
+            if not is_tag_prerelease("v%s" % tag_version):
+                return tag_version
+        else:
+            return tag_version
+
+    return None
 
 
 def is_tag_prerelease(tag):
@@ -209,10 +271,14 @@ def is_tag_prerelease(tag):
         bool: True if format is that of a pre-release,
             false otherwise
     """
-    parsed_results = parse('v{version}-{postfix}', tag)
-    if parsed_results:
+    parsed_tag = parse_semver_tag(tag)
+    if parsed_tag["postfix"]:
+        shaker.libs.logger.Logger().debug("github::is_tag_prerelease: "
+                           "%s is pre-release" % (tag))
         return True
-
+    
+    shaker.libs.logger.Logger().debug("github::is_tag_prerelease: "
+                                     "%s is not pre-release" % (tag))
     return False
 
 
