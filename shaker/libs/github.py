@@ -294,12 +294,12 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                                                   % (tag_version))
                     else:
                         raise ConstraintResolutionException("github::resolve_constraint_to_object: "
-                                                    "Could not satisfy constraint '%s', "
-                                                    " No non-prerelease >= version found %s"
+                                                    " No non-prerelease version found %s"
                                                     % (constraint))
 
             elif parsed_comparator == '<=':
-                for tag_version in tag_versions:
+                valid_version=None
+                for tag_version in reversed(tag_versions):
                     if (tag_version <= parsed_version):
                         if not is_tag_prerelease(tag_version):
                             valid_version = tag_version
@@ -308,11 +308,11 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                             shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
                                                   "Skipping pre-release version '%s'"
                                                   % (tag_version))
-                    else:
-                        raise ConstraintResolutionException("github::resolve_constraint_to_object: "
-                                                    "Could not satisfy constraint '%s', "
-                                                    " No non-prerelease <= version found %s"
-                                                    % (constraint))
+
+                if not valid_version:
+                    raise ConstraintResolutionException("github::resolve_constraint_to_object: "
+                                                " No non-prerelease version found %s"
+                                                % (constraint))
             else:
                 msg = ("github::resolve_constraint_to_object: "
                        "Unknown comparator '%s'" % (parsed_comparator))
