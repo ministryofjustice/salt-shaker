@@ -14,6 +14,7 @@ setup(
         'requests[security]',
         'PyYAML',
         'pygit2 >= 0.21.4',
+        'parse'
     ],
     tests_require=[
         'responses',

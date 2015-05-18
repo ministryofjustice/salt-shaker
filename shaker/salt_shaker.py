@@ -90,7 +90,7 @@ class Shaker(object):
             self._shaker_remote.write_requirements(overwrite=True, backup=True)
         else:
             requirements = '\n'.join(self._shaker_remote.get_requirements())
-            logger.Logger().info("Shaker: Simulation mode enabled, "
+            logger.Logger().warning("Shaker: Simulation mode enabled, "
                                  "no changes will be made...\n%s\n\n"
                                  % (requirements))
 

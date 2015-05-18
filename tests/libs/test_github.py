@@ -365,7 +365,7 @@ class TestGithub(unittest.TestCase):
         self.assertTrue(False, "TODO")
 
     @responses.activate
-    def test_get_tags(self):
+    def test_get_valid_tags(self):
         responses.add(responses.GET,
                       'https://api.github.com/repos/ministryofjustice/test-formula/tags',
                       content_type="application/json",
@@ -374,7 +374,7 @@ class TestGithub(unittest.TestCase):
                       )
         org = 'ministryofjustice'
         formula = 'test-formula'
-        wanted_tag, tag_versions, _ = shaker.libs.github.get_tags(org, formula)
+        wanted_tag, tag_versions, _ = shaker.libs.github.get_valid_tags(org, formula)
         expected_wanted_tag = "v2.0.1"
         expected_tag_versions = ["1.0.1", "2.0.1"]
 

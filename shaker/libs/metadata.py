@@ -1,6 +1,7 @@
 import shaker.libs.logger
 import re
 from shaker.libs import errors
+from parse import parse
 
 comparator_re = re.compile('([=><]+)\s*(.*)')
 tag_re = re.compile('v[0-9]+\.[0-9]+\.[0-9]+')
@@ -79,7 +80,7 @@ def parse_constraint(constraint):
     """
     Parse a constraint of form
     into an info dictionary of form
-    {'comparator': comparator, 'tag': tag, 'version': version}
+    {'comparator': comparator, 'tag': tag, 'version': version, 'postfix': postfix}
 
     Args:
         constraint(string): The string representing the constratint
@@ -90,11 +91,23 @@ def parse_constraint(constraint):
     match = comparator_re.search(constraint)
     comparator = match.group(1)
     tag = match.group(2)
-    version_match = re.search('^v(.*)', tag)
+
     version = None
-    if version_match:
-        version = version_match.group(1)
-    return {'comparator': comparator, 'tag': tag, 'version': version}
+    postfix = None
+    parsed_results = parse('v{version}-{postfix}', tag)
+    if parsed_results:
+        version = parsed_results["version"]
+        postfix = parsed_results["postfix"]
+    else:
+        parsed_results = parse('v{version}', tag)
+        if parsed_results:
+            version = parsed_results["version"]
+            postfix = None
+
+    return {'comparator': comparator,
+            'tag': tag,
+            'version': version,
+            'postfix': postfix}
 
 
 def resolve_constraints(new_constraint,

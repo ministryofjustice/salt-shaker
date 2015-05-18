@@ -77,33 +77,82 @@ def parse_github_url(url):
     return info
 
 
-def get_tags(org_name, formula_name):
-    def convert_tagname(tag):
-        try:
-            if '-' in tag:
-                parsed_tag = tag.split('-')
-                semver_tag = parsed_tag[0]
-                postfix_tag = parsed_tag[1]
-                rettag = map(int, semver_tag.split('.'))
-                rettag.append(postfix_tag)
-            else:
-                rettag = map(int, tag.split('.'))
+def convert_tag_to_semver(tag):
+    """
+    Convert a tag name into a list of semver compliant data
+    Formats must be of the form,
+        v{major}.{minor}.{patch}(-postfix)
+    eg,
+        v1.2.3
+        v1.2.3-prerelease_tag1
 
-            return rettag
-        except ValueError:
-            shaker.libs.logger.Logger().warning("github::get_tags: "
-                                                "Invalid tag %s'"
-                                                % (tag))
+    Args:
+        tag(string): The tag to convert
+
+    Returns:
+        list: List of semver compliant data of form,
+            [major_version, minor_version, patch_version, (posfix-tag)]
+            Or return an empty list if the tag could not be parsed.
+    """
+    # Strip any leading 'v' from release/pre-release tags
+    if '-' in tag:
+        parsed_results = parse('v{maj}.{min}.{patch}-{postfix}', tag)
+        if not parsed_results:
+            shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
+                                            "Failed to parse pre-release %s'"
+                                            % (tag))
             return []
+
+        rettag = [parsed_results["maj"],
+                  parsed_results["min"],
+                  parsed_results["patch"],
+                  parsed_results["postfix"]
+                  ]
+        shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
+                                            "Found %s'"
+                                            % (rettag))
+        return rettag
+    else:
+        parsed_results = parse('v{maj}.{min}.{patch}', tag)
+        if not parsed_results:
+            shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
+                                            "Failed to parse release %s'"
+                                            % (tag))
+            return []
+
+        rettag = [parsed_results["maj"], parsed_results["min"], parsed_results["patch"]]
+        shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
+                                            "Found %s'"
+                                            % (rettag))
+        return rettag
+
+
+def get_valid_tags(org_name,
+             formula_name,
+             max_tag_count=1000):
+    """
+    Get all semver compliant tags from a repository using the
+    formula organisation and name
+
+    Args:
+        org_name(string): The organisation name of the repository
+        formula_name(string): The formula name of the repository
+        max_tag_count(int): Limit on amount of tags to fetch
+
+    Returns:
+        string: The tag that is calculated to be the 'preferred' one
+        list: All the tag versions found that were semver compliant
+        dictionary: Data for all tags, semver compliant or not
+    """
 
     github_token = get_valid_github_token()
     if not github_token:
-        shaker.libs.logger.Logger().error("github::get_tags: "
+        shaker.libs.logger.Logger().error("github::get_valid_tags: "
                                           "No valid github token")
         sys.exit(1)
 
-    tags_url = ('https://api.github.com/repos/%s/%s/tags'
-                % (org_name, formula_name))
+    tags_url = ('https://api.github.com/repos/%s/%s/tags?per_page=%s'
+                % (org_name, formula_name, max_tag_count))
     tag_versions = []
     tags_data = {}
     tags_json = requests.get(tags_url,
@@ -112,11 +161,30 @@ def get_tags(org_name, formula_name):
     if validate_github_access(tags_json):
         try:
             tags_data = json.loads(tags_json.text)
-            tag_versions = [x['name'][1:] for x in tags_data]
-            tag_versions.sort(key=convert_tagname)
+            for tag in tags_data:
+                raw_name = tag['name']
+            
+                semver_info = convert_tag_to_semver(raw_name)
+                # If we have a semver valid tag, then add,
+                # otherwise ignore
+                if len(semver_info) > 0:
+                    
+                    parsed_tag_version_results = parse('v{tag}', raw_name)
+                    if parsed_tag_version_results:
+                        shaker.libs.logger.Logger().debug("github::get_valid_tags: "
+                                      "Appending valid tag %s'"
+                                      % (raw_name))
+                        parsed_tag_version = parsed_tag_version_results["tag"]
+                        tag_versions.append(parsed_tag_version)
+                else:
+                    shaker.libs.logger.Logger().warning("github::get_valid_tags: "
+                                      "Ignoring semver invalid tag %s'"
+                                      % (raw_name))
+
+            tag_versions.sort()
             wanted_tag = 'v{0}'.format(tag_versions[-1])
         except ValueError as e:
-            msg = ("github::get_tags: "
+            msg = ("github::get_valid_tags: "
                    "Invalid json for url '%s': %s"
                    % (tags_url,
                       e.message))
@@ -124,7 +192,28 @@ def get_tags(org_name, formula_name):
     else:
         wanted_tag = 'master'
 
+    shaker.libs.logger.Logger().debug("github::get_valid_tags: "
+                                     "wanted_tag=%s, tag_versions=%s"
+                                    % (wanted_tag, tag_versions))
     return wanted_tag, tag_versions, tags_data
+
+
+def is_tag_prerelease(tag):
+    """
+    Simple check for a pre-release
+
+    Args:
+        tag(string): The tag in format v1.2.3-postfix
+
+    Returns:
+        bool: True if format is that of a pre-release,
+            false otherwise
+    """
+    parsed_results = parse('v{version}-{postfix}', tag)
+    if parsed_results:
+        return True
+
+    return False
 
 
 def resolve_constraint_to_object(org_name, formula_name, constraint):
@@ -149,7 +238,7 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
     shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
                                       "resolve_constraint_to_object(%s, %s, %s)"
                                       % (org_name, formula_name, constraint))
-    wanted_tag, tag_versions, tags_data = get_tags(org_name, formula_name)
+    wanted_tag, tag_versions, tags_data = get_valid_tags(org_name, formula_name)
 
     if not constraint or (constraint == ''):
         shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
@@ -193,16 +282,37 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
             # but also not another type of tag (eg 'fdfsdfdsfsd')
             valid_version = None
             if parsed_comparator == '>=':
-                for tag_version in tag_versions:
+                # Get latest non pre-release version
+                for tag_version in reversed(tag_versions):
                     if (tag_version >= parsed_version):
-                        valid_version = tag_version
-                        break
+                        if not is_tag_prerelease(tag_version):
+                            valid_version = tag_version
+                            break
+                        else:
+                            shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                                  "Skipping pre-release version '%s'"
+                                                  % (tag_version))
+                    else:
+                        raise ConstraintResolutionException("github::resolve_constraint_to_object: "
+                                                    "Could not satisfy constraint '%s', "
+                                                    " No non-prerelease >= version found %s"
+                                                    % (constraint))
 
             elif parsed_comparator == '<=':
-                for tag_version in reversed(tag_versions):
+                for tag_version in tag_versions:
                     if (tag_version <= parsed_version):
-                        valid_version = tag_version
-                        break
+                        if not is_tag_prerelease(tag_version):
+                            valid_version = tag_version
+                            break
+                        else:
+                            shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                                  "Skipping pre-release version '%s'"
+                                                  % (tag_version))
+                    else:
+                        raise ConstraintResolutionException("github::resolve_constraint_to_object: "
+                                                    "Could not satisfy constraint '%s', "
+                                                    " No non-prerelease <= version found %s"
+                                                    % (constraint))
             else:
                 msg = ("github::resolve_constraint_to_object: "
                        "Unknown comparator '%s'" % (parsed_comparator))
