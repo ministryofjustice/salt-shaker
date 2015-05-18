@@ -21,8 +21,8 @@ class ShakerCommandLine(object):
         parser_install.set_defaults(overwrite=True)
         parser_install.set_defaults(func=self.shake)
 
-        parser_refresh = subparsers.add_parser('refresh',
-                                                help=("Refresh formulas and requirements"))
+        parser_refresh = subparsers.add_parser('install-pinned-versions',
+                                                help=("Install pinned versions of formulas using formula-requirements.txt"))
         parser_refresh.set_defaults(overwrite=False)
         parser_refresh.set_defaults(func=self.shake)
 
