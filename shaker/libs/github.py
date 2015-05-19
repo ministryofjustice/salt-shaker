@@ -94,7 +94,8 @@ def parse_semver_tag(tag):
                 "patch": patch_version,
                 "postfix": (posfix-tag)
             }
-            Return an empty list if the tag could not be parsed.
+            Return a dictionary with all fields set to None if 
+            the tag could not be parsed.
     """
     retval = {
         "major": None,
@@ -245,6 +246,59 @@ def get_valid_tags(org_name,
                                       % (wanted_tag, tag_versions))
     return wanted_tag, tag_versions, tags_data
 
+"""
+WIP HERE
+"""
+def get_branch_data(org_name,
+                   formula_name,
+                   branch_name):
+    """
+    Get the raw data from github for a specific branch of the repo
+    
+    Args:
+        org_name(string): The organisation name of the repository
+        formula_name(string): The formula name of the repository
+        branch_name(string): Name of the branch
+
+    Returns:
+        dictionary: Data for the specific branch or a empty in case of 
+        problems
+    """
+
+    shaker.libs.logger.Logger().debug("github::get_branch_data: "
+                                      "starts here: org_name %s "
+                                      "formula_name %s branch_name %s"
+                                      % (org_name, formula_name, branch_name))
+    github_token = get_valid_github_token()
+    if not github_token:
+        shaker.libs.logger.Logger().error("github::get_branch_data: "
+                                          "No valid github token")
+        sys.exit(1)
+
+    branch_url = ('https://api.github.com/repos/%s/%s/branches/%s'
+                % (org_name, formula_name, branch_name))
+    shaker.libs.logger.Logger().debug("github::get_branch_data: "
+                                      "branch_url %s "
+                                      % (branch_url))
+    branch_json = requests.get(branch_url,
+                             auth=(github_token, 'x-oauth-basic'))
+    shaker.libs.logger.Logger().debug("github::get_branch_data: "
+                                      "branch_json %s "
+                                      % (str(branch_json)))
+    # Check for successful access and any credential problems
+    if validate_github_access(branch_json):
+        try:
+            branch_data = json.loads(branch_json.text)
+        except ValueError as e:
+            msg = ("github::get_branch_data: "
+                   "Invalid json for url '%s': %s"
+                   % (tags_url,
+                      e.message))
+            raise ValueError(msg)
+    else:
+        branch_data = None
+
+    return branch_data
 
 def get_latest_tag(tag_versions,
                    include_prereleases=False):
@@ -340,7 +394,9 @@ def is_tag_prerelease(tag):
                                       "%s is not pre-release" % (tag))
     return False
 
-
+"""
+WIP HERE
+"""
 def resolve_constraint_to_object(org_name, formula_name, constraint):
     """
     For a given formula, take the constraint and compare it to
@@ -363,17 +419,62 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
     shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
                                       "resolve_constraint_to_object(%s, %s, %s)"
                                       % (org_name, formula_name, constraint))
-    wanted_tag, tag_versions, tags_data = get_valid_tags(org_name, formula_name)
 
+    # do we have a constraint?
+    if constraint:
+        # is it a branch or a tag?
+        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                          "constraint is not empty '%s'"
+                                          % (constraint))
+        parsed_constraint = metadata.parse_constraint(constraint)
+        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                          "parsed_constraint '%s'"
+                                          % (str(parsed_constraint)))
+        # is it a branch (i.e. not a version)
+        if not parsed_constraint['version']:
+            branch_name = parsed_constraint['tag']
+            shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                              "There is no version, assuming this is "
+                                              "a branch, name: '%s'"
+                                              % (branch_name))
+            branch_data = get_branch_data(org_name, formula_name, branch_name)
+            if branch_data:
+                obj = {
+                    'commit': {
+                        'url': branch_data['commit']['sha'],
+                        'sha': branch_data['commit']['sha'],
+                    },
+                    'name': branch_data['name'],
+                }
+                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                                  "obj: %s type: %s" % (str(obj),type(obj)))
+            else:
+                shaker.libs.logger.Logger().error("github::resolve_constraint_to_object: github did "
+                                                  "not return any value for branch: %" %
+                                                  (branch_name))
+                sys.exit(1)
+            return obj
+
+    # carry on with version analyses
+    wanted_tag, tag_versions, tags_data = get_valid_tags(org_name, formula_name)
     if not constraint or (constraint == ''):
         shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
                                           "No constraint specified, returning '%s'"
                                           % (wanted_tag))
         obj = None
+        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                          "type of tags_data: %s"
+                                          % (type(tags_data)))
         for tag_data in tags_data:
             if tag_data["name"] == wanted_tag:
                 obj = tag_data
+                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                                  "type of (note no s!) tag_data: %s"
+                                                  % (type(tag_data)))
                 break
+        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                                          "returning obj: '%s' type: %s"
+                                          % (str(obj), type(obj)))
         return obj
 
     parsed_constraint = metadata.parse_constraint(constraint)
@@ -546,7 +647,7 @@ def validate_github_access(response):
 
         # Check the status codes for success
         if response.status_code == 200:
-            shaker.libs.logger.Logger().debug("Github access checked ok")
+            shaker.libs.logger.Logger().debug("github::validate_github_access:Github access checked ok")
             return True
         else:
             # Set a default response message, use the real one if we
