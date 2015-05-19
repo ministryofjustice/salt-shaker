@@ -103,7 +103,7 @@ def parse_semver_tag(tag):
         "postfix": None
     }
     if '-' in tag:
-        parsed_results = parse('v{major}.{minor}.{patch}-{postfix}', tag)
+        parsed_results = parse('v{major:d}.{minor:d}.{patch:d}-{postfix}', tag)
         if not parsed_results:
             shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
                                               "Failed to parse pre-release %s'"
@@ -121,7 +121,7 @@ def parse_semver_tag(tag):
                                           % (retval))
         return retval
     else:
-        parsed_results = parse('v{major}.{minor}.{patch}', tag)
+        parsed_results = parse('v{major:d}.{minor:d}.{patch:d}', tag)
         if not parsed_results:
             shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
                                               "Failed to parse release %s'"
@@ -267,16 +267,25 @@ def get_latest_tag(tag_versions,
     Returns:
         string: tag version of the latest tag, in form "1.2.3"
     """
+    shaker.libs.logger.Logger().debug("github::get_latest_tag: "
+                                      "Latest from %s"
+                                      % (tag_versions))
     tag_versions.sort()
     for tag_version in reversed(tag_versions):
         is_release = is_tag_release("v%s" % tag_version)
+        is_prerelease = is_tag_prerelease("v%s" % tag_version)
 
         if not include_prereleases:
-            is_prerelease = is_tag_prerelease("v%s" % tag_version)
             if is_release and not is_prerelease:
+                shaker.libs.logger.Logger().debug("github::get_latest_tag: "
+                                                  "Found '%s' (excluding pre-releases)"
+                                                  % (tag_version))
                 return tag_version
         else:
-            if is_release:
+            if is_release or is_prerelease:
+                shaker.libs.logger.Logger().debug("github::get_latest_tag: "
+                                                  "Found '%s' (including pre-releases)"
+                                                  % (tag_version))
                 return tag_version
 
     return None
@@ -294,14 +303,19 @@ def is_tag_release(tag):
             false otherwise
     """
     parsed_tag = parse_semver_tag(tag)
-    if parsed_tag and not parsed_tag["postfix"]:
+    valid_version_checks = (parsed_tag["major"] != None) and (parsed_tag["minor"] != None) and (parsed_tag["patch"] != None)
+    if not valid_version_checks:
         shaker.libs.logger.Logger().debug("github::is_tag_release: "
-                                          "%s is release" % (tag))
-        return True
+                                          "%s is not release, bad version checks" % (tag))
+        return False
+    if parsed_tag["postfix"]:
+        shaker.libs.logger.Logger().debug("github::is_tag_release: "
+                                          "%s is not release, contains postfix" % (tag))
+        return False
 
     shaker.libs.logger.Logger().debug("github::is_tag_release: "
-                                      "%s is not release" % (tag))
-    return False
+                                      "%s is release" % (tag))
+    return True
 
 
 def is_tag_prerelease(tag):
@@ -316,7 +330,8 @@ def is_tag_prerelease(tag):
             false otherwise
     """
     parsed_tag = parse_semver_tag(tag)
-    if parsed_tag and parsed_tag["postfix"]:
+    valid_version_checks = (parsed_tag["major"] != None) and (parsed_tag["minor"] != None) and (parsed_tag["patch"] != None)
+    if valid_version_checks and parsed_tag["postfix"]:
         shaker.libs.logger.Logger().debug("github::is_tag_prerelease: "
                                           "%s is pre-release" % (tag))
         return True

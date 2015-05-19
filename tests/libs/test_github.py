@@ -378,16 +378,149 @@ class TestGithub(unittest.TestCase):
         expected_wanted_tag = "v2.0.1"
         expected_tag_versions = ["1.0.1", "2.0.1"]
 
-        self.assertEqual(wanted_tag, expected_wanted_tag, "Expected wanted tag '%s, got '%s'"
+        self.assertEqual(wanted_tag, expected_wanted_tag, "Actual wanted tag '%s, expected '%s'"
                          % (wanted_tag, expected_wanted_tag))
-        self.assertEqual(tag_versions, expected_tag_versions, "Expected wanted tag '%s, got '%s'"
+        self.assertEqual(tag_versions, expected_tag_versions, "Actual wanted tag '%s, expected '%s'"
                          % (tag_versions, expected_tag_versions))
 
-    def test_get_latest_tag(self):
-        self.assertTrue(False, "TODO")
+    def test_get_latest_tag_no_prereleases(self):
+        """
+        Test latest tag with no prerelease
+        """
+        include_prereleases = False
+        tag_versions = [
+            "1.1.1",
+            "2.2.2-prerelease",
+            "notathing",
+            "3.3.3stillnotathing"
+        ]
+        expected_lastest_tag = "1.1.1"
 
-    def test_is_release(self):
-        self.assertTrue(False, "TODO")
+        actual_latest_tag = shaker.libs.github.get_latest_tag(tag_versions, include_prereleases)
+        self.assertEqual(actual_latest_tag,
+                         expected_lastest_tag,
+                         "Actual tag %s != %s"
+                         % (actual_latest_tag,
+                            expected_lastest_tag))
 
-    def test_is_prerelease(self):
-        self.assertTrue(False, "TODO")
+    def test_get_latest_tag_prereleases(self):
+        """
+        Test get latest tag with prereleases included
+        """
+        include_prereleases = True
+        tag_versions = [
+            "1.1.1",
+            "2.2.2-prerelease",
+            "notathing",
+            "3.3.3stillnotathing"
+        ]
+        expected_lastest_tag = "2.2.2-prerelease"
+
+        actual_latest_tag = shaker.libs.github.get_latest_tag(tag_versions, include_prereleases)
+        self.assertEqual(actual_latest_tag,
+                         expected_lastest_tag,
+                         "Actual tag %s != %s"
+                         % (actual_latest_tag,
+                            expected_lastest_tag))
+
+    def test_parse_semver_tag_release(self):
+        """
+        Parse a valid release tag
+        """
+        tag = "v1.2.3"
+        result = shaker.libs.github.parse_semver_tag(tag)
+        expected_result = {
+            "major": 1,
+            "minor": 2,
+            "patch": 3,
+            "postfix": None
+        }
+        self.assertEqual(result,
+                         expected_result,
+                         "%s != %s"
+                         % (result,
+                            expected_result))
+
+    def test_parse_semver_tag_prerelease(self):
+        """
+        Parse a valid release tag
+        """
+        tag = "v1.2.3-prerelease"
+        result = shaker.libs.github.parse_semver_tag(tag)
+        expected_result = {
+            "major": 1,
+            "minor": 2,
+            "patch": 3,
+            "postfix": "prerelease"
+        }
+        self.assertEqual(result,
+                         expected_result,
+                         "%s != %s"
+                         % (result,
+                            expected_result))
+
+    def test_parse_semver_tag_noncompliant(self):
+        """
+        Parse a valid release tag
+        """
+        tag = "v1.2.3ijidsja"
+        result = shaker.libs.github.parse_semver_tag(tag)
+        expected_result = {
+            "major": None,
+            "minor": None,
+            "patch": None,
+            "postfix": None
+        }
+        self.assertEqual(result,
+                         expected_result,
+                         "%s != %s"
+                         % (result,
+                            expected_result))
+
+    def test_is_tag_release(self):
+        """
+        Test tag is a valid release
+        """
+        tag = "v1.2.3"
+        actual_result = shaker.libs.github.is_tag_release(tag)
+        self.assertTrue(actual_result, "%s should be a release" % tag)
+
+    def test_is_tag_release_prerelease(self):
+        """
+        Test is not a valid release, its a prerelease
+        """
+        tag = "v1.2.3-prereleases"
+        actual_result = shaker.libs.github.is_tag_release(tag)
+        self.assertFalse(actual_result, "%s should not be a release" % tag)
+
+    def test_is_tag_release_notcompliant(self):
+        """
+        Test is not a valid release, is not compiant
+        """
+        tag = "v1.2.3ijidsja"
+        actual_result = shaker.libs.github.is_tag_release(tag)
+        self.assertFalse(actual_result, "%s should not be a release" % tag)
+
+    def test_is_tag_prerelease_release(self):
+        """
+        Test tag is not a valid prerelease, its a release
+        """
+        tag = "v1.2.3"
+        actual_result = shaker.libs.github.is_tag_prerelease(tag)
+        self.assertFalse(actual_result, "%s should be a prerelease" % tag)
+
+    def test_is_tag_prerelease_prerelease(self):
+        """
+        Test is a valid prerelease
+        """
+        tag = "v1.2.3-prereleases"
+        actual_result = shaker.libs.github.is_tag_prerelease(tag)
+        self.assertTrue(actual_result, "%s should not be a prerelease" % tag)
+
+    def test_is_tag_prerelease_notcompliant(self):
+        """
+        Test is not a valid prerelease, is not compiant
+        """
+        tag = "v1.2.3ijidsja"
+        actual_result = shaker.libs.github.is_tag_prerelease(tag)
+        self.assertFalse(actual_result, "%s should not be a prerelease" % tag)
