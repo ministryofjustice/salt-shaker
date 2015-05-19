@@ -382,3 +382,12 @@ class TestGithub(unittest.TestCase):
                          % (wanted_tag, expected_wanted_tag))
         self.assertEqual(tag_versions, expected_tag_versions, "Expected wanted tag '%s, got '%s'"
                          % (tag_versions, expected_tag_versions))
+
+    def test_get_latest_tag(self):
+        self.assertTrue(False, "TODO")
+
+    def test_is_release(self):
+        self.assertTrue(False, "TODO")
+
+    def test_is_prerelease(self):
+        self.assertTrue(False, "TODO")

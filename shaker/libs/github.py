@@ -6,8 +6,6 @@ import sys
 import pygit2
 from parse import parse
 import urlparse
-from datetime import datetime
-import base64
 
 import metadata
 from errors import ConstraintResolutionException
@@ -79,8 +77,8 @@ def parse_github_url(url):
 
 def parse_semver_tag(tag):
     """
-    Convert a tag name into a list of semver compliant data
-    Formats must be of the form,
+    Convert a tag name into a dictionary of semver compliant
+    data. Formats must be of the form,
         v{major}.{minor}.{patch}(-postfix)
     eg,
         v1.2.3
@@ -90,51 +88,55 @@ def parse_semver_tag(tag):
         tag(string): The tag to convert
 
     Returns:
-        list: List of semver compliant data of form,
-            [major_version, minor_version, patch_version, (posfix-tag)]
-            Or return an empty list if the tag could not be parsed.
+        dictionary: Dictionary of semver compliant data of form,
+            {   "major: major_version,
+                "minor": minor_version,
+                "patch": patch_version,
+                "postfix": (posfix-tag)
+            }
+            Return an empty list if the tag could not be parsed.
     """
     retval = {
-              "major": None,
-                  "minor": None,
-                  "patch": None,
-                  "postfix": None
-                  }
+        "major": None,
+        "minor": None,
+        "patch": None,
+        "postfix": None
+    }
     if '-' in tag:
         parsed_results = parse('v{major}.{minor}.{patch}-{postfix}', tag)
         if not parsed_results:
-            shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
-                                            "Failed to parse pre-release %s'"
-                                            % (tag))
+            shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
+                                              "Failed to parse pre-release %s'"
+                                              % (tag))
             return retval
 
         retval = {
-                  "major": parsed_results["major"],
-                  "minor": parsed_results["minor"],
-                  "patch": parsed_results["patch"],
-                  "postfix": parsed_results["postfix"]
-                  }
-        shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
-                                            "Found %s'"
-                                            % (retval))
+            "major": parsed_results["major"],
+            "minor": parsed_results["minor"],
+            "patch": parsed_results["patch"],
+            "postfix": parsed_results["postfix"]
+        }
+        shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
+                                          "Found %s'"
+                                          % (retval))
         return retval
     else:
         parsed_results = parse('v{major}.{minor}.{patch}', tag)
         if not parsed_results:
-            shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
-                                            "Failed to parse release %s'"
-                                            % (tag))
+            shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
+                                              "Failed to parse release %s'"
+                                              % (tag))
             return retval
 
         retval = {
-                  "major": parsed_results["major"],
-                  "minor":parsed_results["minor"],
-                  "patch":parsed_results["patch"],
-                  "postfix":None
-                  }
-        shaker.libs.logger.Logger().debug("github::convert_tag_to_semver: "
-                                            "Found %s'"
-                                            % (retval))
+            "major": parsed_results["major"],
+            "minor": parsed_results["minor"],
+            "patch": parsed_results["patch"],
+            "postfix": None
+        }
+        shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
+                                          "Found %s'"
+                                          % (retval))
         return retval
 
     return retval
@@ -158,18 +160,19 @@ def convert_tag_to_semver(tag):
             Or return an empty list if the tag could not be parsed.
     """
     parsed_results = parse_semver_tag(tag)
-    rettag = [parsed_results["major"],
-                  parsed_results["minor"],
-                  parsed_results["patch"],
-                  parsed_results["postfix"]
-                  ]
- 
+    rettag = [
+        parsed_results["major"],
+        parsed_results["minor"],
+        parsed_results["patch"],
+        parsed_results["postfix"]
+    ]
+
     return rettag
 
 
 def get_valid_tags(org_name,
-             formula_name,
-             max_tag_count=1000):
+                   formula_name,
+                   max_tag_count=1000):
     """
     Get all semver compliant tags from a repository using the
     formula organisation and name
@@ -203,23 +206,22 @@ def get_valid_tags(org_name,
             tags_data = json.loads(tags_json.text)
             for tag in tags_data:
                 raw_name = tag['name']
-            
+
                 semver_info = convert_tag_to_semver(raw_name)
                 # If we have a semver valid tag, then add,
                 # otherwise ignore
                 if len(semver_info) > 0:
-                    
                     parsed_tag_version_results = parse('v{tag}', raw_name)
                     if parsed_tag_version_results:
                         shaker.libs.logger.Logger().debug("github::get_valid_tags: "
-                                      "Appending valid tag %s'"
-                                      % (raw_name))
+                                                          "Appending valid tag %s'"
+                                                          % (raw_name))
                         parsed_tag_version = parsed_tag_version_results["tag"]
                         tag_versions.append(parsed_tag_version)
                 else:
                     shaker.libs.logger.Logger().warning("github::get_valid_tags: "
-                                      "Ignoring semver invalid tag %s'"
-                                      % (raw_name))
+                                                        "Ignoring semver invalid tag %s'"
+                                                        % (raw_name))
 
             tag_versions.sort()
             wanted_version = get_latest_tag(tag_versions,
@@ -239,25 +241,67 @@ def get_valid_tags(org_name,
         wanted_tag = None
 
     shaker.libs.logger.Logger().debug("github::get_valid_tags: "
-                                     "wanted_tag=%s, tag_versions=%s"
-                                    % (wanted_tag, tag_versions))
+                                      "wanted_tag=%s, tag_versions=%s"
+                                      % (wanted_tag, tag_versions))
     return wanted_tag, tag_versions, tags_data
 
 
 def get_latest_tag(tag_versions,
                    include_prereleases=False):
     """
+    Get the latest valid semver tag from a list of tag versions.
+    Trivially we can return the very latest if we like, but this
+    will skip non-release versions by default
 
+    Args:
+        tag_versions(list): List of tag versions, in format
+            [
+                "1.2.3-prerelease1",
+                "1.1.1",
+                "0.8.7"
+            ]
+        include_prereleases(bool): True to include prereleases
+            in looking for latest semver compliant release tags,
+            false to only use releases (eg, 1.2.3)
+
+    Returns:
+        string: tag version of the latest tag, in form "1.2.3"
     """
     tag_versions.sort()
     for tag_version in reversed(tag_versions):
+        is_release = is_tag_release("v%s" % tag_version)
+
         if not include_prereleases:
-            if not is_tag_prerelease("v%s" % tag_version):
+            is_prerelease = is_tag_prerelease("v%s" % tag_version)
+            if is_release and not is_prerelease:
                 return tag_version
         else:
-            return tag_version
+            if is_release:
+                return tag_version
 
     return None
+
+
+def is_tag_release(tag):
+    """
+    Simple check for a release
+
+    Args:
+        tag(string): The tag in format v1.2.3
+
+    Returns:
+        bool: True if format is that of a release,
+            false otherwise
+    """
+    parsed_tag = parse_semver_tag(tag)
+    if parsed_tag and not parsed_tag["postfix"]:
+        shaker.libs.logger.Logger().debug("github::is_tag_release: "
+                                          "%s is release" % (tag))
+        return True
+
+    shaker.libs.logger.Logger().debug("github::is_tag_release: "
+                                      "%s is not release" % (tag))
+    return False
 
 
 def is_tag_prerelease(tag):
@@ -272,13 +316,13 @@ def is_tag_prerelease(tag):
             false otherwise
     """
     parsed_tag = parse_semver_tag(tag)
-    if parsed_tag["postfix"]:
+    if parsed_tag and parsed_tag["postfix"]:
         shaker.libs.logger.Logger().debug("github::is_tag_prerelease: "
-                           "%s is pre-release" % (tag))
+                                          "%s is pre-release" % (tag))
         return True
-    
+
     shaker.libs.logger.Logger().debug("github::is_tag_prerelease: "
-                                     "%s is not pre-release" % (tag))
+                                      "%s is not pre-release" % (tag))
     return False
 
 
@@ -356,15 +400,15 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                             break
                         else:
                             shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
-                                                  "Skipping pre-release version '%s'"
-                                                  % (tag_version))
+                                                              "Skipping pre-release version '%s'"
+                                                              % (tag_version))
                     else:
                         raise ConstraintResolutionException("github::resolve_constraint_to_object: "
-                                                    " No non-prerelease version found %s"
-                                                    % (constraint))
+                                                            " No non-prerelease version found %s"
+                                                            % (constraint))
 
             elif parsed_comparator == '<=':
-                valid_version=None
+                valid_version = None
                 for tag_version in reversed(tag_versions):
                     if (tag_version <= parsed_version):
                         if not is_tag_prerelease(tag_version):
@@ -372,13 +416,13 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                             break
                         else:
                             shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
-                                                  "Skipping pre-release version '%s'"
-                                                  % (tag_version))
+                                                              "Skipping pre-release version '%s'"
+                                                              % (tag_version))
 
                 if not valid_version:
                     raise ConstraintResolutionException("github::resolve_constraint_to_object: "
-                                                " No non-prerelease version found %s"
-                                                % (constraint))
+                                                        " No non-prerelease version found %s"
+                                                        % (constraint))
             else:
                 msg = ("github::resolve_constraint_to_object: "
                        "Unknown comparator '%s'" % (parsed_comparator))
@@ -625,131 +669,6 @@ def install_source(target_source,
                                       % (target_name, target_sha))
 
     return True
-
-
-def resolve_tag_to_sha(target_source,
-                       target_version,
-                       target_directory):
-    """
-    Try to resolve the revision into a SHA. If rev is a tag or a SHA then
-    try to avoid doing a fetch on the repo if we already know about it. If
-    it is a branch then make sure it is the tip of that branch (i.e. this
-    will do a git fetch on the repo)
-    """
-
-    # Check for a a tag with the targets version
-    # If we don't have a v1.0 style tag then try as a branch head
-    # If none of the above, try it as a straight sha
-    target_name = target_source.get('name', None)
-    target_url = target_source.get('source', None)
-    target_path = os.path.join(target_directory,
-                               target_name)
-
-    repository = open_repository(target_url, target_path)
-
-    origin = get_origin_for_remote(repository)
-    if not origin:
-        raise RuntimeError("Unable to find origin for repo.")
-
-    url = urlparse.urlparse(origin.url)
-    username = url.netloc.split('@')[0] if '@' in url.netloc else 'git'
-    origin.credentials = pygit2.credentials.KeypairFromAgent(username)
-
-    for attempt in range(0, 2):
-        # Try a tag first. Treat it as immutable so if we find it then
-        # we don't have to fetch the remote repo
-        refs = repository.listall_references()
-        tag_ref = 'refs/tags/{}'.format(target_version)
-        if tag_ref in refs:
-            sha = repository.lookup_reference(tag_ref).get_object().hex
-            shaker.libs.logger.Logger().debug("resolve_tag_to_sha: "
-                                              "Found sha '%s' for tag '%s' on attempt"
-                                              % (sha,
-                                                 tag_ref,
-                                                 attempt))
-            return sha
-
-        # Next check for a branch - if it is one then we want to update
-        # as it might have changed since we last fetched
-        branch_ref = 'refs/remotes/origin/{}'.format(target_version)
-        if branch_ref in refs:
-            full_ref = repository.lookup_reference(branch_ref)
-            # Don't treat the sha as resolved until we've updated the
-            # remote
-            if full_ref:
-                sha = full_ref.get_object().hex
-                shaker.libs.logger.Logger().debug("resolve_tag_to_sha: "
-                                                  "Found sha '%s' for branch '%s'"
-                                                  % (sha, tag_ref))
-                return sha
-
-        # Could just be a SHA
-        try:
-            sha = repository.revparse_single(target_version).hex
-            shaker.libs.logger.Logger().debug("resolve_tag_to_sha: "
-                                              "Found direct reference to sha '%s'"
-                                              % (sha))
-            return sha
-        except KeyError:
-            # Maybe we just need to fetch first.
-            pass
-
-        shaker.libs.logger.Logger().debug("resolve_tag_to_sha: "
-                                          "Cannot find version '%s' in refs '%s'"
-                                          % (target_version, refs))
-    return None
-
-
-def get_repository_debug(repository):
-    repo = pygit2.Repository(repository)
-    objects = {
-        'tags': [],
-        'commits': [],
-    }
-
-    for objhex in repo:
-        obj = repo[objhex]
-        if obj.type == pygit2.GIT_OBJ_COMMIT:
-            objects['commits'].append({
-                'hash': obj.hex,
-                'message': obj.message,
-                'commit_date': datetime.utcfromtimestamp(
-                    obj.commit_time).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                'author_name': obj.author.name,
-                'author_email': obj.author.email,
-                'parents': [c.hex for c in obj.parents],
-            })
-        elif obj.type == pygit2.GIT_OBJ_TAG:
-            objects['tags'].append({
-                'hex': obj.hex,
-                'name': obj.name,
-                'message': obj.message,
-                'target': base64.b16encode(obj.target).lower(),
-                'tagger_name': obj.tagger.name,
-                'tagger_email': obj.tagger.email,
-            })
-        elif obj.type == pygit2.GIT_OBJ_TAG:
-            objects['tags'].append({
-                'hex': obj.hex,
-                'name': obj.name,
-                'message': obj.message,
-                'target': base64.b16encode(obj.target).lower(),
-                'tagger_name': obj.tagger.name,
-                'tagger_email': obj.tagger.email,
-            })
-        elif obj.type == pygit2.GIT_OBJ_TREE:
-                objects['tree'].append({'hex': obj.hex,
-                                        'name': obj.name,
-                                        'message': obj.message,
-                                        'target': base64.b16encode(obj.target).lower(),
-                                        'tagger_name': obj.tagger.name,
-                                        'tagger_email': obj.tagger.email,
-                                        })
-        else:
-            # ignore blobs and trees
-            pass
-
-    return(json.dumps(objects, indent=2))
 
 
 def get_origin_for_remote(repository):

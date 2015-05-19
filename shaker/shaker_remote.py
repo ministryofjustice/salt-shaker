@@ -1,8 +1,9 @@
-import shaker.libs.logger
-import shaker.libs.github
-import os
 import errno
+import os
 import shutil
+
+import shaker.libs.github
+import shaker.libs.logger
 
 
 class ShakerRemote:
