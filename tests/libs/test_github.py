@@ -33,6 +33,23 @@ class TestGithub(unittest.TestCase):
         },
     ]
 
+    _sample_response_branches = [
+        {
+            "name": "branch-01",
+            "commit": {
+                "sha": "6826533980361f54b9de17d181830fa4ec94138c",
+                "url": "https://api.github.com/repos/ministryofjustice/test-formula/commits/6826533980361f54b9de17d181830fa4ec94138c"
+            }
+        },
+        {
+            "name": "ThisCouldBeABranch",
+            "commit": {
+                "sha": "1d7d509b534b08b08b1f85253990b6c3f0dec007",
+                "url": "https://api.github.com/repos/ministryofjustice/test-formula/commits/1d7d509b534b08b08b1f85253990b6c3f0dec007"
+            }
+        },
+    ]
+
     def setUp(self):
         unittest.TestCase.setUp(self)
         os.environ['GITHUB_TOKEN'] = 'false'
@@ -218,7 +235,7 @@ class TestGithub(unittest.TestCase):
                          % github_token)
 
     @responses.activate
-    def test_resolve_constraint_to_tag_equality_resolvable(self):
+    def test_resolve_constraint_to_object_equality_resolvable(self):
         """
         TestGithub: Test that we get the right tags for a resolvable constraint
         """
@@ -247,7 +264,7 @@ class TestGithub(unittest.TestCase):
 
     @responses.activate
     @raises(ConstraintResolutionException)
-    def test_resolve_constraint_to_tag_equality_unresolvable(self):
+    def test_resolve_constraint_to_object_equality_unresolvable(self):
         """
         TestGithub: Test that we throw an unresolvable constraint error
         """
@@ -267,7 +284,7 @@ class TestGithub(unittest.TestCase):
         self.assertTrue(False, "TODO")
 
     @responses.activate
-    def test_resolve_constraint_to_tag_greater_than_resolvable(self):
+    def test_resolve_constraint_to_object_greater_than_resolvable(self):
         """
         TestGithub: Test that we get the right tags for a resolvable constraint
         """
@@ -296,7 +313,7 @@ class TestGithub(unittest.TestCase):
 
     @responses.activate
     @raises(ConstraintResolutionException)
-    def test_resolve_constraint_to_tag_greater_than_unresolvable(self):
+    def test_resolve_constraint_to_object_greater_than_unresolvable(self):
         """
         TestGithub: Test that we throw an unresolvable constraint error
         """
@@ -316,7 +333,7 @@ class TestGithub(unittest.TestCase):
         # We're testing for exceptions, No assertion needed
 
     @responses.activate
-    def test_resolve_constraint_to_tag_less_than_resolvable(self):
+    def test_resolve_constraint_to_object_less_than_resolvable(self):
         """
         TestGithub: Test that we get the right tags for a resolvable constraint
         """
@@ -345,7 +362,7 @@ class TestGithub(unittest.TestCase):
 
     @responses.activate
     @raises(ConstraintResolutionException)
-    def test_resolve_constraint_to_tag_lesser_than_unresolvable(self):
+    def test_resolve_constraint_to_object_lesser_than_unresolvable(self):
         """
         TestGithub: Test that we throw an unresolvable constraint error
         """
@@ -524,3 +541,32 @@ class TestGithub(unittest.TestCase):
         tag = "v1.2.3ijidsja"
         actual_result = shaker.libs.github.is_tag_prerelease(tag)
         self.assertFalse(actual_result, "%s should not be a prerelease" % tag)
+        
+    @responses.activate
+    def test_resolve_constraint_to_object_branches(self):
+        """
+        TestGithub: Test that we get the right branch for a resolvable constraint
+        """
+
+        responses.add(responses.GET,
+                      'https://api.github.com/repos/ministryofjustice/test-formula/branches',
+                      content_type="application/json",
+                      body=json.dumps(self._sample_response_branches),
+                      status=200
+                      )
+        org = 'ministryofjustice'
+        formula = 'test-formula'
+        version = 'branch-01'
+        constraint = '==%s' % version
+        tag_data = shaker.libs.github.resolve_constraint_to_object(org,
+                                                                   formula,
+                                                                   constraint)
+        wanted_tag = tag_data['name']
+        # Equality constraint is satisfiable
+        self.assertEqual(wanted_tag,
+                         version,
+                         "Branch equality constraint should be satisfiable, "
+                         "actual:%s expected:%s"
+                         % (wanted_tag,
+                            version))
+        
