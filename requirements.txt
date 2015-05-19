@@ -4,3 +4,4 @@ PyYAML
 parse
 nose
 testfixtures
+responses
