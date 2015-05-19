@@ -635,8 +635,8 @@ class ShakerMetadata:
                                 auth=(github_token, 'x-oauth-basic')
                                 )
         if shaker.libs.github.validate_github_access(raw_data):
-            dict = yaml.load(raw_data.content)
-            return dict
+            remote_dict = yaml.load(raw_data.content)
+            return remote_dict
         else:
             shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_file: "
                                               "Could not validate github access to '%s'"

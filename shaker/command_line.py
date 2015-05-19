@@ -16,14 +16,15 @@ class ShakerCommandLine(object):
         parser.add_argument('--simulate', '-s', action='store_true', help="Only simulate the command, do not commit any changes")
 
         parser_install = subparsers.add_parser('install',
-                                               help=("Install formulas and requirements"),
-                                              )
-        parser_install.set_defaults(overwrite=True)
+                                               help=("Install formulas and requirements from metadata.yml, "
+                                                     "recursively resolving remote dependencies"),
+                                               )
+        parser_install.set_defaults(pinned=False)
         parser_install.set_defaults(func=self.shake)
 
         parser_refresh = subparsers.add_parser('install-pinned-versions',
-                                                help=("Install pinned versions of formulas using formula-requirements.txt"))
-        parser_refresh.set_defaults(overwrite=False)
+                                               help=("Install pinned versions of formulas using formula-requirements.txt"))
+        parser_refresh.set_defaults(pinned=True)
         parser_refresh.set_defaults(func=self.shake)
 
         args_ns = parser.parse_args(args=self.back_compat_args_fix(cli_args))

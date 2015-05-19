@@ -8,11 +8,16 @@ from shaker_remote import ShakerRemote
 
 class Shaker(object):
     """
-    Start from a root formula and calculate all necessary dependencies,
+    Shaker takes in a metadata yaml file and uses this to resolve a set
+    of dependencies into a pinned and versioned set in a
+    formula-requirements.txt file. This can then be used to synchronise
+    a set of salt-formulas with remote versions pinned to the specified
+    versions.
+
+    Starting from a root formula and calculate all necessary dependencies,
     based on metadata stored in each formula.
 
-    How it works
-    ------------
+       -
 
     Salt Shaker works by creating an extra file root that must be copied up to
     your salt server and added to the master config.
@@ -45,11 +50,15 @@ class Shaker(object):
     def __init__(self, root_dir, salt_root_path='vendor',
                  clone_path='formula-repos', salt_root='_root'):
         """
-        There is a high chance you don't want to change the paths here.
+        Initialise application paths and collect together the
+        metadata
 
-        If you do, you'll need to change the paths in your salt config to ensure
-        that there is an entry in `file_roots` that matches self.roots_dir
-        (i.e., root_dir + salt_root_path + salt_root)
+        Args:
+            root_dir(string): The root directory to use
+            salt_root_dir(string): The directory to use for the salt
+                root
+            clone_path(string): The directory to put formula into
+            salt_root(string): The directory to link formula into
         """
 
         self.roots_dir = os.path.join(root_dir, salt_root_path, salt_root)
@@ -83,6 +92,12 @@ class Shaker(object):
                              ):
         """
         Install all of the versioned requirements found
+
+        Args:
+            overwrite(bool): True to overwrite dependencies,
+                false otherwise
+            simulate(bool): True to only simulate the run,
+                false to carry it through for real
         """
         if not simulate:
             logger.Logger().info("Shaker: Installing dependencies...")
@@ -92,12 +107,18 @@ class Shaker(object):
         else:
             requirements = '\n'.join(self._shaker_remote.get_requirements())
             logger.Logger().warning("Shaker: Simulation mode enabled, "
-                                 "no changes will be made...\n%s\n\n"
-                                 % (requirements))
+                                    "no changes will be made...\n%s\n\n"
+                                    % (requirements))
 
 
 def setup_logging(level):
-    # Initialise the default app logging
+    """
+    Initialise the default application logging
+
+    Args:
+        level(logging.LEVEL): The level to set
+            logging at
+    """
     logger.Logger('salt-shaker')
     logger.Logger().setLevel(level)
 
@@ -105,10 +126,21 @@ def setup_logging(level):
 def shaker(root_dir='.',
            debug=False,
            verbose=False,
-           overwrite=False,
+           pinned=False,
            simulate=False):
     """
-    utility task to initiate Shaker in the most typical way
+    Utility task to initiate Shaker, setting up logging and
+    running the neccessary commands to install requirements
+
+    Args:
+        root_dir(string): The root directory to use
+        debug(bool): Enable/disable debugging output
+        verbose(bool): Enable/disable verbose output
+        pinned(bool): True to use pinned requirements,
+            False to use metadata to recalculate
+            requirements
+        simulate(bool): True to only simulate the run,
+            false to carry it through for real
     """
     if (debug):
         setup_logging(logging.DEBUG)
@@ -121,16 +153,16 @@ def shaker(root_dir='.',
         os.makedirs(root_dir, 0755)
     shaker_instance = Shaker(root_dir=root_dir)
 
-    if overwrite:
-        logger.Logger().info("Shaker: Updating..."
+    if not pinned:
+        logger.Logger().info("Shaker: Installing..."
                              "All dependencies will be "
                              "re-calculated from the metadata")
         shaker_instance.update_requirements()
         shaker_instance.install_requirements(overwrite=True,
                                              simulate=simulate)
     else:
-        logger.Logger().info("Shaker: Refreshing..."
-                             "Dependencies will be refreshed "
+        logger.Logger().info("Shaker: Installing pinned dependencies..."
+                             "Dependencies will be installed "
                              "from the stored formula requirements")
         shaker_instance.load_requirements()
         shaker_instance.install_requirements(overwrite=False,

@@ -74,10 +74,10 @@ class ShakerRemote:
             success = shaker.libs.github.install_source(dependency,
                                                         install_dir)
             shaker.libs.logger.Logger().debug("ShakerRemote::install_dependencies: "
-                               "Installed '%s to directory '%s': %s"
-                               % (dependency_name,
-                                  install_dir,
-                                  success))
+                                              "Installed '%s to directory '%s': %s"
+                                              % (dependency_name,
+                                                 install_dir,
+                                                 success))
             if success:
                 successful_updates += 1
             else:
@@ -163,8 +163,8 @@ class ShakerRemote:
     def _update_root_links(self):
         for dependency_info in self._dependencies.values():
             shaker.libs.logger.Logger().debug("ShakerRemote::_update_root_links: "
-                               "Updating '%s"
-                               % (dependency_info))
+                                              "Updating '%s"
+                                              % (dependency_info))
             name = dependency_info.get('name', None)
             target = os.path.join(self._working_directory,
                                   self._salt_root,
@@ -233,9 +233,9 @@ class ShakerRemote:
             dependency["version"] = target_obj['name']
             dependency["sha"] = target_obj["commit"]['sha']
             shaker.libs.logger.Logger().debug("_resolve_constraint_to_sha(%s) Found version '%s' and sha '%s'"
-                               % (dependency.get('name', ''),
-                                  dependency["version"],
-                                  dependency["sha"]))
+                                              % (dependency.get('name', ''),
+                                                 dependency["version"],
+                                                 dependency["sha"]))
             return dependency["sha"]
 
         return None
@@ -254,7 +254,7 @@ class ShakerRemote:
         if os.path.exists(salt_root_path):
             shutil.rmtree(salt_root_path)
             shaker.libs.logger.Logger().debug("_create_directories: Deleting salt root directory '%s'"
-                               % (salt_root_path))
+                                              % (salt_root_path))
         os.makedirs(salt_root_path)
 
         # Ensure the repos_dir exists
@@ -264,7 +264,7 @@ class ShakerRemote:
         if not os.path.exists(install_path):
             try:
                 shaker.libs.logger.Logger().debug("_create_directories: Creating repository directory '%s'"
-                                   % (install_path))
+                                                  % (install_path))
                 os.makedirs(install_path)
             except OSError as e:
                     raise IOError("There was a problem creating the directory '%s', '%s'"
@@ -272,7 +272,7 @@ class ShakerRemote:
         elif overwrite and os.path.exists(install_path):
             shutil.rmtree(install_path)
             shaker.libs.logger.Logger().debug("_create_directories: Deleting repository directory '%s'"
-                               % (install_path))
+                                              % (install_path))
             os.makedirs(install_path)
 
     def get_requirements(self):
