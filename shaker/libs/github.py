@@ -449,10 +449,10 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                 shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
                                                   "obj: %s type: %s" % (str(obj),type(obj)))
             else:
-                shaker.libs.logger.Logger().error("github::resolve_constraint_to_object: github did "
-                                                  "not return any value for branch: %" %
-                                                  (branch_name))
-                sys.exit(1)
+                raise ConstraintResolutionException("github::resolve_constraint_to_object: "
+                                                    "github did not return any value for "
+                                                    "branch '%s'"
+                                                    % (branch_name))
             return obj
 
     # carry on with version analyses

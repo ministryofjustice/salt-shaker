@@ -33,22 +33,83 @@ class TestGithub(unittest.TestCase):
         },
     ]
 
-    _sample_response_branches = [
-        {
-            "name": "branch-01",
+    _sample_response_branches = {
+          "name": "branch-01",
+          "commit": {
+            "sha": "1035f6628a5991bd8b5d7b35affaf5b22f738287",
             "commit": {
-                "sha": "6826533980361f54b9de17d181830fa4ec94138c",
-                "url": "https://api.github.com/repos/ministryofjustice/test-formula/commits/6826533980361f54b9de17d181830fa4ec94138c"
-            }
-        },
-        {
-            "name": "ThisCouldBeABranch",
-            "commit": {
-                "sha": "1d7d509b534b08b08b1f85253990b6c3f0dec007",
-                "url": "https://api.github.com/repos/ministryofjustice/test-formula/commits/1d7d509b534b08b08b1f85253990b6c3f0dec007"
-            }
-        },
-    ]
+              "author": {
+                "name": "Mike Pountney",
+                "email": "Mike.Pountney@gmail.com",
+                "date": "2014-11-24T14:30:38Z"
+              },
+              "committer": {
+                "name": "Mike Pountney",
+                "email": "Mike.Pountney@gmail.com",
+                "date": "2014-11-24T17:22:01Z"
+              },
+              "message": "Add short_hostname client param for sensu\n\nBoth of the existing helper params: `hostname` and `metric_prefix` are based on the FQDN.\nSome other metrics (and other things, like the ElasticSearch node name) are based on the\nshort hostname. Make it available!",
+              "tree": {
+                "sha": "5dfd1062c239fb96cd5ab07fd03aea113feca09e",
+                "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/git/trees/5dfd1062c239fb96cd5ab07fd03aea113feca09e"
+              },
+              "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/git/commits/1035f6628a5991bd8b5d7b35affaf5b22f738287",
+              "comment_count": 0
+            },
+            "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/commits/1035f6628a5991bd8b5d7b35affaf5b22f738287",
+            "html_url": "https://github.com/ministryofjustice/sensu-formula/commit/1035f6628a5991bd8b5d7b35affaf5b22f738287",
+            "comments_url": "https://api.github.com/repos/ministryofjustice/sensu-formula/commits/1035f6628a5991bd8b5d7b35affaf5b22f738287/comments",
+            "author": {
+              "login": "mikepea",
+              "id": 9037,
+              "avatar_url": "https://avatars.githubusercontent.com/u/9037?v=3",
+              "gravatar_id": "",
+              "url": "https://api.github.com/users/mikepea",
+              "html_url": "https://github.com/mikepea",
+              "followers_url": "https://api.github.com/users/mikepea/followers",
+              "following_url": "https://api.github.com/users/mikepea/following{/other_user}",
+              "gists_url": "https://api.github.com/users/mikepea/gists{/gist_id}",
+              "starred_url": "https://api.github.com/users/mikepea/starred{/owner}{/repo}",
+              "subscriptions_url": "https://api.github.com/users/mikepea/subscriptions",
+              "organizations_url": "https://api.github.com/users/mikepea/orgs",
+              "repos_url": "https://api.github.com/users/mikepea/repos",
+              "events_url": "https://api.github.com/users/mikepea/events{/privacy}",
+              "received_events_url": "https://api.github.com/users/mikepea/received_events",
+              "type": "User",
+              "site_admin": 'false'
+            },
+            "committer": {
+              "login": "mikepea",
+              "id": 9037,
+              "avatar_url": "https://avatars.githubusercontent.com/u/9037?v=3",
+              "gravatar_id": "",
+              "url": "https://api.github.com/users/mikepea",
+              "html_url": "https://github.com/mikepea",
+              "followers_url": "https://api.github.com/users/mikepea/followers",
+              "following_url": "https://api.github.com/users/mikepea/following{/other_user}",
+              "gists_url": "https://api.github.com/users/mikepea/gists{/gist_id}",
+              "starred_url": "https://api.github.com/users/mikepea/starred{/owner}{/repo}",
+              "subscriptions_url": "https://api.github.com/users/mikepea/subscriptions",
+              "organizations_url": "https://api.github.com/users/mikepea/orgs",
+              "repos_url": "https://api.github.com/users/mikepea/repos",
+              "events_url": "https://api.github.com/users/mikepea/events{/privacy}",
+              "received_events_url": "https://api.github.com/users/mikepea/received_events",
+              "type": "User",
+              "site_admin": 'false'
+            },
+            "parents": [
+              {
+                "sha": "9e05f5f8cbea26e91edabbb753d6ce035bd93e59",
+                "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/commits/9e05f5f8cbea26e91edabbb753d6ce035bd93e59",
+                "html_url": "https://github.com/ministryofjustice/sensu-formula/commit/9e05f5f8cbea26e91edabbb753d6ce035bd93e59"
+              }
+            ]
+          },
+          "_links": {
+            "self": "https://api.github.com/repos/ministryofjustice/sensu-formula/branches/client_parameters_from_pillar",
+            "html": "https://github.com/ministryofjustice/sensu-formula/tree/client_parameters_from_pillar"
+          }
+      }
 
     def setUp(self):
         unittest.TestCase.setUp(self)
@@ -549,7 +610,7 @@ class TestGithub(unittest.TestCase):
         """
 
         responses.add(responses.GET,
-                      'https://api.github.com/repos/ministryofjustice/test-formula/branches',
+                      'https://api.github.com/repos/ministryofjustice/test-formula/branches/branch-01',
                       content_type="application/json",
                       body=json.dumps(self._sample_response_branches),
                       status=200
@@ -569,4 +630,33 @@ class TestGithub(unittest.TestCase):
                          "actual:%s expected:%s"
                          % (wanted_tag,
                             version))
+
+    @responses.activate
+    @raises(ConstraintResolutionException)
+    def test_resolve_constraint_to_object_branch_equality_unresolvable(self):
+        """
+        TestGithub: Test that we throw an unresolvable constraint error
+        """
         
+        # setup a mock response - branch not found
+        mock_resp = [
+            {
+              "message": "Branch not found",
+              "documentation_url": "https://developer.github.com/v3/repos/#get-branch"
+            }
+        ]
+        
+        responses.add(responses.GET,
+                      'https://api.github.com/repos/ministryofjustice/test-formula/branches/branch-01',
+                      content_type="application/json",
+                      body=json.dumps(mock_resp),
+                      status=403
+                      )
+        org = 'ministryofjustice'
+        formula = 'test-formula'
+        branch_name = 'branch-01'
+        constraint = '==%s' % branch_name
+        tag_data = shaker.libs.github.resolve_constraint_to_object(org,
+                                                                   formula,
+                                                                   constraint)
+        # We're testing for exceptions, No assertion needed
