@@ -602,9 +602,9 @@ class TestGithub(unittest.TestCase):
         tag = "v1.2.3ijidsja"
         actual_result = shaker.libs.github.is_tag_prerelease(tag)
         self.assertFalse(actual_result, "%s should not be a prerelease" % tag)
-        
+
     @responses.activate
-    def test_resolve_constraint_to_object_branches(self):
+    def test_resolve_constraint_to_object_branch_equality_resolvable(self):
         """
         TestGithub: Test that we get the right branch for a resolvable constraint
         """
@@ -636,8 +636,9 @@ class TestGithub(unittest.TestCase):
     def test_resolve_constraint_to_object_branch_equality_unresolvable(self):
         """
         TestGithub: Test that we throw an unresolvable constraint error
+        when branch doesn't exist
         """
-        
+
         # setup a mock response - branch not found
         mock_resp = [
             {
@@ -645,7 +646,7 @@ class TestGithub(unittest.TestCase):
               "documentation_url": "https://developer.github.com/v3/repos/#get-branch"
             }
         ]
-        
+
         responses.add(responses.GET,
                       'https://api.github.com/repos/ministryofjustice/test-formula/branches/branch-01',
                       content_type="application/json",

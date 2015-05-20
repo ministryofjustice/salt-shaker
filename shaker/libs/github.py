@@ -94,7 +94,7 @@ def parse_semver_tag(tag):
                 "patch": patch_version,
                 "postfix": (posfix-tag)
             }
-            Return a dictionary with all fields set to None if 
+            Return a dictionary with all fields set to None if
             the tag could not be parsed.
     """
     retval = {
@@ -246,22 +246,20 @@ def get_valid_tags(org_name,
                                       % (wanted_tag, tag_versions))
     return wanted_tag, tag_versions, tags_data
 
-"""
-WIP HERE
-"""
+
 def get_branch_data(org_name,
                    formula_name,
                    branch_name):
     """
     Get the raw data from github for a specific branch of the repo
-    
+
     Args:
         org_name(string): The organisation name of the repository
         formula_name(string): The formula name of the repository
         branch_name(string): Name of the branch
 
     Returns:
-        dictionary: Data for the specific branch or a empty in case of 
+        dictionary: Data for the specific branch or a empty in case of
         problems
     """
 
@@ -299,6 +297,7 @@ def get_branch_data(org_name,
         branch_data = None
 
     return branch_data
+
 
 def get_latest_tag(tag_versions,
                    include_prereleases=False):
@@ -394,9 +393,7 @@ def is_tag_prerelease(tag):
                                       "%s is not pre-release" % (tag))
     return False
 
-"""
-WIP HERE
-"""
+
 def resolve_constraint_to_object(org_name, formula_name, constraint):
     """
     For a given formula, take the constraint and compare it to
@@ -447,7 +444,7 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                     'name': branch_data['name'],
                 }
                 shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
-                                                  "obj: %s type: %s" % (str(obj),type(obj)))
+                                                  "obj: %s type: %s" % (str(obj), type(obj)))
             else:
                 raise ConstraintResolutionException("github::resolve_constraint_to_object: "
                                                     "github did not return any value for "
@@ -568,7 +565,6 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                                         'Constraint {} cannot be satisfied for {}/{}'.format(constraint,
                                                                                              org_name,
                                                                                              formula_name))
-
     return None
 
 
