@@ -38,77 +38,13 @@ class TestGithub(unittest.TestCase):
           "commit": {
             "sha": "1035f6628a5991bd8b5d7b35affaf5b22f738287",
             "commit": {
-              "author": {
-                "name": "Mike Pountney",
-                "email": "Mike.Pountney@gmail.com",
-                "date": "2014-11-24T14:30:38Z"
-              },
-              "committer": {
-                "name": "Mike Pountney",
-                "email": "Mike.Pountney@gmail.com",
-                "date": "2014-11-24T17:22:01Z"
-              },
-              "message": "Add short_hostname client param for sensu\n\nBoth of the existing helper params: `hostname` and `metric_prefix` are based on the FQDN.\nSome other metrics (and other things, like the ElasticSearch node name) are based on the\nshort hostname. Make it available!",
-              "tree": {
-                "sha": "5dfd1062c239fb96cd5ab07fd03aea113feca09e",
-                "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/git/trees/5dfd1062c239fb96cd5ab07fd03aea113feca09e"
-              },
               "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/git/commits/1035f6628a5991bd8b5d7b35affaf5b22f738287",
               "comment_count": 0
             },
             "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/commits/1035f6628a5991bd8b5d7b35affaf5b22f738287",
             "html_url": "https://github.com/ministryofjustice/sensu-formula/commit/1035f6628a5991bd8b5d7b35affaf5b22f738287",
             "comments_url": "https://api.github.com/repos/ministryofjustice/sensu-formula/commits/1035f6628a5991bd8b5d7b35affaf5b22f738287/comments",
-            "author": {
-              "login": "mikepea",
-              "id": 9037,
-              "avatar_url": "https://avatars.githubusercontent.com/u/9037?v=3",
-              "gravatar_id": "",
-              "url": "https://api.github.com/users/mikepea",
-              "html_url": "https://github.com/mikepea",
-              "followers_url": "https://api.github.com/users/mikepea/followers",
-              "following_url": "https://api.github.com/users/mikepea/following{/other_user}",
-              "gists_url": "https://api.github.com/users/mikepea/gists{/gist_id}",
-              "starred_url": "https://api.github.com/users/mikepea/starred{/owner}{/repo}",
-              "subscriptions_url": "https://api.github.com/users/mikepea/subscriptions",
-              "organizations_url": "https://api.github.com/users/mikepea/orgs",
-              "repos_url": "https://api.github.com/users/mikepea/repos",
-              "events_url": "https://api.github.com/users/mikepea/events{/privacy}",
-              "received_events_url": "https://api.github.com/users/mikepea/received_events",
-              "type": "User",
-              "site_admin": 'false'
-            },
-            "committer": {
-              "login": "mikepea",
-              "id": 9037,
-              "avatar_url": "https://avatars.githubusercontent.com/u/9037?v=3",
-              "gravatar_id": "",
-              "url": "https://api.github.com/users/mikepea",
-              "html_url": "https://github.com/mikepea",
-              "followers_url": "https://api.github.com/users/mikepea/followers",
-              "following_url": "https://api.github.com/users/mikepea/following{/other_user}",
-              "gists_url": "https://api.github.com/users/mikepea/gists{/gist_id}",
-              "starred_url": "https://api.github.com/users/mikepea/starred{/owner}{/repo}",
-              "subscriptions_url": "https://api.github.com/users/mikepea/subscriptions",
-              "organizations_url": "https://api.github.com/users/mikepea/orgs",
-              "repos_url": "https://api.github.com/users/mikepea/repos",
-              "events_url": "https://api.github.com/users/mikepea/events{/privacy}",
-              "received_events_url": "https://api.github.com/users/mikepea/received_events",
-              "type": "User",
-              "site_admin": 'false'
-            },
-            "parents": [
-              {
-                "sha": "9e05f5f8cbea26e91edabbb753d6ce035bd93e59",
-                "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/commits/9e05f5f8cbea26e91edabbb753d6ce035bd93e59",
-                "html_url": "https://github.com/ministryofjustice/sensu-formula/commit/9e05f5f8cbea26e91edabbb753d6ce035bd93e59"
-              }
-            ]
           },
-          "_links": {
-            "self": "https://api.github.com/repos/ministryofjustice/sensu-formula/branches/client_parameters_from_pillar",
-            "html": "https://github.com/ministryofjustice/sensu-formula/tree/client_parameters_from_pillar"
-          }
       }
 
     def setUp(self):
