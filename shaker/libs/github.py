@@ -94,8 +94,7 @@ def parse_semver_tag(tag):
                 "patch": patch_version,
                 "postfix": (posfix-tag)
             }
-            Return a dictionary with all fields set to None if
-            the tag could not be parsed.
+        If the tag could not be parsed, the values of all keys are set to None.
     """
     retval = {
         "major": None,
