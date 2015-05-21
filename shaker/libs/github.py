@@ -9,6 +9,7 @@ import urlparse
 
 import metadata
 from errors import ConstraintResolutionException
+from errors import GithubRepositoryConnectionException
 import shaker.libs.logger
 
 const_re = re.compile('([=><]+)\s*(.*)')
@@ -190,9 +191,8 @@ def get_valid_tags(org_name,
 
     github_token = get_valid_github_token()
     if not github_token:
-        shaker.libs.logger.Logger().error("github::get_valid_tags: "
-                                          "No valid github token")
-        sys.exit(1)
+        msg = "github::get_branch_data: No valid github token"
+        raise GithubRepositoryConnectionException(msg)
 
     tags_url = ('https://api.github.com/repos/%s/%s/tags?per_page=%s'
                 % (org_name, formula_name, max_tag_count))
@@ -247,8 +247,8 @@ def get_valid_tags(org_name,
 
 
 def get_branch_data(org_name,
-                   formula_name,
-                   branch_name):
+                    formula_name,
+                    branch_name):
     """
     Get the raw data from github for a specific branch of the repo
 
@@ -268,17 +268,16 @@ def get_branch_data(org_name,
                                       % (org_name, formula_name, branch_name))
     github_token = get_valid_github_token()
     if not github_token:
-        shaker.libs.logger.Logger().error("github::get_branch_data: "
-                                          "No valid github token")
-        sys.exit(1)
+        msg = "github::get_branch_data: No valid github token"
+        raise GithubRepositoryConnectionException(msg)
 
     branch_url = ('https://api.github.com/repos/%s/%s/branches/%s'
-                % (org_name, formula_name, branch_name))
+                  % (org_name, formula_name, branch_name))
     shaker.libs.logger.Logger().debug("github::get_branch_data: "
                                       "branch_url %s "
                                       % (branch_url))
     branch_json = requests.get(branch_url,
-                             auth=(github_token, 'x-oauth-basic'))
+                               auth=(github_token, 'x-oauth-basic'))
     shaker.libs.logger.Logger().debug("github::get_branch_data: "
                                       "branch_json %s "
                                       % (str(branch_json)))
@@ -289,7 +288,7 @@ def get_branch_data(org_name,
         except ValueError as e:
             msg = ("github::get_branch_data: "
                    "Invalid json for url '%s': %s"
-                   % (tags_url,
+                   % (branch_url,
                       e.message))
             raise ValueError(msg)
     else:
@@ -355,7 +354,11 @@ def is_tag_release(tag):
             false otherwise
     """
     parsed_tag = parse_semver_tag(tag)
-    valid_version_checks = (parsed_tag["major"] != None) and (parsed_tag["minor"] != None) and (parsed_tag["patch"] != None)
+    valid_version_checks = (
+        (parsed_tag["major"] is not None) and
+        (parsed_tag["minor"] is not None) and
+        (parsed_tag["patch"] is not None)
+    )
     if not valid_version_checks:
         shaker.libs.logger.Logger().debug("github::is_tag_release: "
                                           "%s is not release, bad version checks" % (tag))
@@ -382,7 +385,11 @@ def is_tag_prerelease(tag):
             false otherwise
     """
     parsed_tag = parse_semver_tag(tag)
-    valid_version_checks = (parsed_tag["major"] != None) and (parsed_tag["minor"] != None) and (parsed_tag["patch"] != None)
+    valid_version_checks = (
+        (parsed_tag["major"] is not None) and
+        (parsed_tag["minor"] is not None) and
+        (parsed_tag["patch"] is not None)
+    )
     if valid_version_checks and parsed_tag["postfix"]:
         shaker.libs.logger.Logger().debug("github::is_tag_prerelease: "
                                           "%s is pre-release" % (tag))
@@ -654,11 +661,11 @@ def validate_github_access(response):
                     shaker.libs.logger.Logger().error("validate_github_access: "
                                                       "Github credentials failed due to lockout: %s" % response_message)
                 elif response.status_code == 404:
-                    shaker.libs.logger.Logger().error("validate_github_access: "
-                                                      "URL not found")
+                    shaker.libs.logger.Logger().warning("validate_github_access: "
+                                                        "URL not found")
                 else:
-                    shaker.libs.logger.Logger().error("validate_github_access: "
-                                                      "Unknown problem checking credentials: %s" % response)
+                    shaker.libs.logger.Logger().warning("validate_github_access: "
+                                                        "Unknown problem checking credentials: %s" % response)
     else:
         shaker.libs.logger.Logger().error("Invalid response: %s" % response)
 

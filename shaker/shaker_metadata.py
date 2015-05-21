@@ -1,7 +1,5 @@
 import os
-import sys
 import re
-import pygit2
 import requests
 import yaml
 
@@ -115,9 +113,8 @@ class ShakerMetadata:
                 shaker.libs.logger.Logger().warning('ShakerMetadata::update_metadata: '
                                                     'No root dependencies found')
         else:
-            shaker.libs.logger.Logger().error('ShakerMetadata::update_metadata: '
-                                              ' Error loading metadata.')
-            sys.exit(1)
+            msg = 'ShakerMetadata::update_metadata: Error loading metadata.'
+            raise ShakerConfigException(msg)
 
     def update_dependencies(self,
                             ignore_local_requirements=False,
@@ -350,7 +347,10 @@ class ShakerMetadata:
                     'name': metadata_info.get('name', None)
                 }
                 # Look for problems
-                format_check = dependency_entry['source'] and dependency_entry['organisation'] and dependency_entry['name']
+                format_check = (dependency_entry['source'] and
+                                dependency_entry['organisation'] and
+                                dependency_entry['name']
+                                )
                 if not format_check:
                     msg = ("ShakerMetadata::_parse_metadata_requirements: "
                            "Parsing '%s' as simple format without constraint\n"
@@ -498,7 +498,8 @@ class ShakerMetadata:
         """
         github_token = shaker.libs.github.get_valid_github_token()
         if not github_token:
-            sys.exit(1)
+            msg = "github::get_branch_data: No valid github token"
+            raise GithubRepositoryConnectionException(msg)
 
         shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_metadata: "
                                           "Fetching remote repository "
@@ -611,7 +612,8 @@ class ShakerMetadata:
         """
         github_token = shaker.libs.github.get_valid_github_token()
         if not github_token:
-            sys.exit(1)
+            msg = "github::get_branch_data: No valid github token"
+            raise GithubRepositoryConnectionException(msg)
 
         target_obj = shaker.libs.github.resolve_constraint_to_object(org_name, formula_name, constraint)
         if not target_obj:

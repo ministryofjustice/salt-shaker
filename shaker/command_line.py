@@ -10,10 +10,21 @@ class ShakerCommandLine(object):
         parser = argparse.ArgumentParser(add_help=True)
         subparsers = parser.add_subparsers()
 
-        parser.add_argument('--root_dir', default='.', help="Working path to operate under")
-        parser.add_argument('--verbose', '-v', action='store_true', help="Enable verbose logging")
-        parser.add_argument('--debug', '-d', action='store_true', help="Enable debug logging")
-        parser.add_argument('--simulate', '-s', action='store_true', help="Only simulate the command, do not commit any changes")
+        parser.add_argument('--root_dir',
+                            default='.',
+                            help="Working path to operate under")
+        parser.add_argument('--verbose',
+                            '-v',
+                            action='store_true',
+                            help="Enable verbose logging")
+        parser.add_argument('--debug',
+                            '-d',
+                            action='store_true',
+                            help="Enable debug logging")
+        parser.add_argument('--simulate',
+                            '-s',
+                            action='store_true',
+                            help="Only simulate the command, do not commit any changes")
 
         parser_install = subparsers.add_parser('install',
                                                help=("Install formulas and requirements from metadata.yml, "
@@ -23,7 +34,8 @@ class ShakerCommandLine(object):
         parser_install.set_defaults(func=self.shake)
 
         parser_refresh = subparsers.add_parser('install-pinned-versions',
-                                               help=("Install pinned versions of formulas using formula-requirements.txt"))
+                                               help=("Install pinned versions of formulas "
+                                                     "using formula-requirements.txt"))
         parser_refresh.set_defaults(pinned=True)
         parser_refresh.set_defaults(func=self.shake)
 
