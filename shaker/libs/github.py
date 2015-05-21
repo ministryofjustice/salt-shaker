@@ -100,7 +100,7 @@ def parse_semver_tag(tag):
         "major": None,
         "minor": None,
         "patch": None,
-        "postfix": None
+        "postfix": None,
     }
     if '-' in tag:
         parsed_results = parse('v{major:d}.{minor:d}.{patch:d}-{postfix}', tag)
@@ -114,7 +114,7 @@ def parse_semver_tag(tag):
             "major": parsed_results["major"],
             "minor": parsed_results["minor"],
             "patch": parsed_results["patch"],
-            "postfix": parsed_results["postfix"]
+            "postfix": parsed_results["postfix"],
         }
         shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
                                           "Found %s'"
@@ -132,7 +132,7 @@ def parse_semver_tag(tag):
             "major": parsed_results["major"],
             "minor": parsed_results["minor"],
             "patch": parsed_results["patch"],
-            "postfix": None
+            "postfix": None,
         }
         shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
                                           "Found %s'"
@@ -164,7 +164,7 @@ def convert_tag_to_semver(tag):
         parsed_results["major"],
         parsed_results["minor"],
         parsed_results["patch"],
-        parsed_results["postfix"]
+        parsed_results["postfix"],
     ]
 
     return rettag
@@ -434,22 +434,12 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                                               "a branch, name: '%s'"
                                               % (branch_name))
             branch_data = get_branch_data(org_name, formula_name, branch_name)
-            if branch_data:
-                obj = {
-                    'commit': {
-                        'url': branch_data['commit']['sha'],
-                        'sha': branch_data['commit']['sha'],
-                    },
-                    'name': branch_data['name'],
-                }
-                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
-                                                  "obj: %s type: %s" % (str(obj), type(obj)))
-            else:
+            if not branch_data:
                 raise ConstraintResolutionException("github::resolve_constraint_to_object: "
                                                     "github did not return any value for "
                                                     "branch '%s'"
                                                     % (branch_name))
-            return obj
+            return branch_data
 
     # carry on with version analyses
     wanted_tag, tag_versions, tags_data = get_valid_tags(org_name, formula_name)
