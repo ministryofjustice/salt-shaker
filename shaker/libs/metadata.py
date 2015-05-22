@@ -1,6 +1,8 @@
 import shaker.libs.logger
 import re
-from shaker.libs import errors
+from shaker.libs.errors import (ConstraintFormatException,
+                                ConstraintResolutionException,
+                                ShakerRequirementsParsingException)
 from parse import parse
 
 comparator_re = re.compile('([=><]+)\s*(.*)')
@@ -163,7 +165,7 @@ def resolve_constraints(new_constraint,
             elif new_comparator == '==':
                 return new_constraint
             elif new_comparator != current_comparator:
-                raise errors.ConstraintResolutionException
+                raise ConstraintResolutionException
             elif new_comparator == '>=':
                 # Get highest version
                 version = max(new_constraint_result["tag"],
@@ -178,11 +180,168 @@ def resolve_constraints(new_constraint,
                 msg = ("metadata.resolve_constraints: %s\n%s\n"
                        % (new_constraint_result,
                           current_constraint_result))
-                raise errors.ConstraintFormatException(msg)
+                raise ConstraintFormatException(msg)
         else:
             msg = ("metadata.resolve_constraints: %s\n%s\n"
                    % (new_constraint_result,
                       current_constraint_result))
-            raise errors.ConstraintFormatException(msg)
+            raise ConstraintFormatException(msg)
 
         return None
+
+
+def parse_metadata_requirements(metadata_dependencies):
+    """
+    Parse the supplied metadata requirements of the format,
+    [
+        'git@github.com:test_organisation/some-formula.git==v1.0',
+        'git@github.com:test_organisation/another-formula.git==v2.0'
+    ]
+    or
+    [
+        'test_organisation/some-formula==v1.0',
+        'test_organisation/another-formula==v2.0'
+    ]
+    and return them in the format,
+
+    'test_organisation/some-formula':
+        {
+            'source': 'git@github.com:test_organisation/some-formula.git',
+            'constraint': '==1.0',
+            'sourced_constraints': ['==1.0'],
+            'organisation': 'test_organisation',
+            'name': 'some-formula'
+        }
+
+    Args:
+        metadata_requirements(string): String of metadata requirements
+
+    Return:
+        dependencies(dictionary): A collection of details on the
+        dependencies in the specified format
+
+    """
+    dependencies = {}
+    for metadata_dependency in metadata_dependencies:
+        # If we have a github url, then parse it, otherwise generate one
+        # From the simplified format. Pass this to th github url parser
+        # to ensure we are generating the same strucutres for both cases
+        metadata_info = {}
+        if (".git" in metadata_dependency or "git@" in metadata_dependency):
+            shaker.libs.logger.Logger().debug("metadata::parse_metadata_requirements: "
+                                              "Parsing '%s' as raw github format\n"
+                                              % (metadata_dependency))
+            metadata_info = shaker.libs.github.parse_github_url(metadata_dependency)
+        else:
+            parsed_entry = re.search('(.*)([=><]{2})\s*(.*)', metadata_dependency)
+            if parsed_entry and len(parsed_entry.groups()) >= 3:
+                parsed_formula = parsed_entry.group(1)
+                parsed_comparator = parsed_entry.group(2)
+                parsed_version = parsed_entry.group(3)
+
+                github_url = "git@github.com:{0}.git{1}{2}".format(parsed_formula,
+                                                                   parsed_comparator,
+                                                                   parsed_version)
+                metadata_info = shaker.libs.github.parse_github_url(github_url)
+                shaker.libs.logger.Logger().debug("metadata::parse_metadata_requirements: "
+                                                  "Parsing '%s' as simple format with constraint"
+                                                  % (metadata_dependency))
+
+            else:
+                github_url = "git@github.com:%s.git" % (metadata_dependency)
+                metadata_info = shaker.libs.github.parse_github_url(github_url)
+                shaker.libs.logger.Logger().debug("metadata::parse_metadata_requirements: "
+                                                  "Parsing '%s' as simple format without constraint\n"
+                                                  % (metadata_dependency))
+
+        if metadata_info:
+            dependency_entry = {
+                'source': metadata_info.get('source', None),
+                'constraint': metadata_info.get('constraint', None),
+                'sourced_constraints': [],
+                'organisation': metadata_info.get('organisation', None),
+                'name': metadata_info.get('name', None)
+            }
+            # Look for problems
+            format_check = (dependency_entry['source'] and
+                            dependency_entry['organisation'] and
+                            dependency_entry['name']
+                            )
+            if not format_check:
+                msg = ("metadata::parse_metadata_requirements: "
+                       "Parsing '%s' as simple format without constraint\n"
+                       % (metadata_dependency))
+                raise ShakerRequirementsParsingException(msg)
+
+            dependency_key = "%s/%s" % (dependency_entry.get('organisation'),
+                                        dependency_entry.get('name'))
+            dependencies[dependency_key] = dependency_entry
+
+            shaker.libs.logger.Logger().debug("metadata::parse_metadata_requirements: "
+                                              "Parsed entry %s %s\n from metadata: %s"
+                                              % (metadata_dependency,
+                                                 dependency_entry,
+                                                 metadata_info))
+        else:
+            shaker.libs.logger.Logger().debug("metadata::parse_metadata_requirements: "
+                                              "No data found for entry %s"
+                                              % (metadata_info.get('source', None)))
+    return dependencies
+
+
+def compare_requirements(previous_requirements,
+                         new_requirements):
+
+    """
+    Compare this objects requirements to another set
+    of requirements
+
+    Args:
+        other_requirements(list): List of requirements of form,
+            [
+                some-organisation/some-formula==1.0.1,
+                some-organisation/another-formula,
+            ]
+
+    Returns:
+        list: List of differing formula requirements, in form for
+        new, deprecated and unequal versions
+            [
+                ['', some-organisation/another-formula]
+                [some-organisation/some-formula==1.0.1, '']
+                [some-organisation/some-formula==1.0.1, some-organisation/another-formula]
+            ]
+    """
+    diff = []
+    parsed_first_requirements = shaker.libs.metadata.parse_metadata_requirements(new_requirements)
+    parsed_other_requirements = shaker.libs.metadata.parse_metadata_requirements(previous_requirements)
+
+    # Test for deprecated entries
+    for other_requirement_name, other_requirement_info in parsed_other_requirements.items():
+        other_requirement_constraint = other_requirement_info.get("constraint", None)
+        other_requirement_line = ("%s%s" % (other_requirement_name, other_requirement_constraint))
+        if other_requirement_name not in parsed_first_requirements.keys():
+            entry = [other_requirement_line, '']
+            diff.append(entry)
+            shaker.libs.logger.Logger().debug("compare_requirements: Found deprecated entry '%s'"
+                                              % (entry))
+        else:
+            first_requirement_info = parsed_first_requirements.get(other_requirement_name)
+            first_requirement_constraint = first_requirement_info.get("constraint", None)
+            first_requirement_line = ("%s%s" % (other_requirement_name, first_requirement_constraint))
+            if first_requirement_constraint != other_requirement_constraint:
+                entry = [other_requirement_line, first_requirement_line]
+                diff.append(entry)
+                shaker.libs.logger.Logger().debug("compare_requirements: Found version diff entry '%s'"
+                                                  % (entry))
+    # Test for new entries
+    for first_requirement_name, first_requirement_info in parsed_first_requirements.items():
+        if first_requirement_name not in parsed_other_requirements.keys():
+            first_requirement_constraint = first_requirement_info.get("constraint", None)
+            first_requirement_line = ("%s%s" % (first_requirement_name, first_requirement_constraint))
+            entry = ['', first_requirement_line]
+            diff.append(entry)
+            shaker.libs.logger.Logger().debug("compare_requirements: Found new entry '%s'"
+                                              % (first_requirement_info))
+
+    return diff

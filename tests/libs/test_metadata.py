@@ -2,6 +2,7 @@ from unittest import TestCase
 from shaker.libs import metadata
 from nose.tools import raises
 from shaker.libs.errors import ConstraintResolutionException
+from mock import patch
 
 
 class TestMetadata(TestCase):
@@ -133,3 +134,213 @@ class TestMetadata(TestCase):
         TestMetadata: Check if metadata with a missing index will throw an error
         """
         metadata.resolve_metadata_duplicates({})
+
+    @patch('shaker.libs.github.parse_github_url')
+    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_local_metadata')
+    @patch('shaker.shaker_metadata.ShakerMetadata.load_local_metadata')
+    @patch('shaker.shaker_metadata.ShakerMetadata.load_local_requirements')
+    def test_parse_metadata_requirements_raw(self,
+                                             mock_load_local_requirements,
+                                             mock_load_local_metadata,
+                                             mock_fetch_local_metadata,
+                                             mock_parse_github_url):
+        requirements = [
+            'git@github.com:test_organisation/some-formula.git==v1.0',
+            'git@github.com:test_organisation/another-formula.git>=v2.0'
+        ]
+
+        expected_result = {
+            'test_organisation/some-formula':
+            {
+                'source': 'git@github.com:test_organisation/some-formula.git',
+                'constraint': '==v1.0',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'some-formula'
+            },
+            'test_organisation/another-formula':
+            {
+                'source': 'git@github.com:test_organisation/another-formula.git',
+                'constraint': '>=v2.0',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'another-formula'
+            }
+        }
+        mock_parse_github_url.side_effect = [
+            {
+                'source': 'git@github.com:test_organisation/some-formula.git',
+                'constraint': '==v1.0',
+                'sourced_constraints': ['==v1.0'],
+                'organisation': 'test_organisation',
+                'name': 'some-formula'
+            },
+            {
+                'source': 'git@github.com:test_organisation/another-formula.git',
+                'constraint': '>=v2.0',
+                'sourced_constraints': ['==v2.0'],
+                'organisation': 'test_organisation',
+                'name': 'another-formula'
+            },
+            None
+        ]
+        # PEP8 requires unused mock being used
+        mock_load_local_requirements.return_value = None
+        mock_load_local_metadata.return_value = None
+        mock_fetch_local_metadata.return_value = None
+
+        actual_result = metadata.parse_metadata_requirements(requirements)
+
+        self.assertEqual(actual_result,
+                         expected_result,
+                         "TestShakerMetadata::test__parse_metadata_requirements_raw: Mismatch\n"
+                         "Actual: %s\nExpected: %s\n\n"
+                         % (actual_result,
+                            expected_result))
+
+    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_local_metadata')
+    @patch('shaker.shaker_metadata.ShakerMetadata.load_local_metadata')
+    @patch('shaker.shaker_metadata.ShakerMetadata.load_local_requirements')
+    def test_parse_metadata_requirements_simple(self,
+                                                mock_load_local_requirements,
+                                                mock_load_local_metadata,
+                                                mock_fetch_local_metadata):
+        requirements = [
+            'test_organisation/some-formula==v1.0',
+            'test_organisation/another-formula>=v2.0'
+        ]
+
+        expected_result = {
+            'test_organisation/some-formula':
+            {
+                'source': 'git@github.com:test_organisation/some-formula.git',
+                'constraint': '==v1.0',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'some-formula'
+            },
+            'test_organisation/another-formula':
+            {
+                'source': 'git@github.com:test_organisation/another-formula.git',
+                'constraint': '>=v2.0',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'another-formula'
+            }
+        }
+
+        # PEP8 requires unused mock being used
+        mock_load_local_requirements.return_value = None
+        mock_load_local_metadata.return_value = None
+        mock_fetch_local_metadata.return_value = None
+
+        actual_result = metadata.parse_metadata_requirements(requirements)
+
+        self.assertEqual(actual_result,
+                         expected_result,
+                         "TestShakerMetadata::test__parse_metadata_requirements_simple: Mismatch\n"
+                         "Actual: %s\nExpected: %s\n\n"
+                         % (actual_result, expected_result))
+
+    def test_compare_requirements_equal(self):
+        """
+        TestShakerMetadata: Test comparing different requirements equal
+        """
+        previous_requirements = [
+                              "test_organisation/test1-formula==v1.0.1",
+                              "test_organisation/test2-formula==v2.0.1",
+                              "test_organisation/test3-formula==v3.0.1",
+                              ]
+        new_requirements = [
+                                "test_organisation/test1-formula==v1.0.1",
+                                "test_organisation/test2-formula==v2.0.1",
+                                "test_organisation/test3-formula==v3.0.1",
+                                ]
+        actual_result = metadata.compare_requirements(previous_requirements,
+                                                      new_requirements)
+        self.assertEqual(0,
+                         len(actual_result),
+                         "Comparison should have no difference")
+
+    def test_compare_requirements_new_entry(self):
+        """
+        TestShakerMetadata: Test comparing different requirements new entries
+        """
+        previous_requirements = [
+                              "test_organisation/test1-formula==v1.0.1",
+                              "test_organisation/test2-formula==v2.0.1",
+                              ]
+        new_requirements = [
+                                "test_organisation/test1-formula==v1.0.1",
+                                "test_organisation/test2-formula==v2.0.1",
+                                "test_organisation/test3-formula==v3.0.1",
+                                ]
+        actual_result = metadata.compare_requirements(previous_requirements,
+                                                      new_requirements)
+        expected_result = [
+                           ['', "test_organisation/test3-formula==v3.0.1"]
+                        ]
+        self.assertEqual(actual_result,
+                         expected_result,
+                         ("Comparison should have deprecated entry\n"
+                          "Actual: '%s'\n"
+                          "Expected: %s\n")
+                         % (actual_result,
+                            expected_result))
+
+    def test_compare_requirements_deprecated_entry(self):
+        """
+        TestShakerMetadata: Test comparing different requirements deprecated entries
+        """
+        previous_requirements = [
+                              "test_organisation/test1-formula==v1.0.1",
+                              "test_organisation/test2-formula==v2.0.1",
+                              "test_organisation/test3-formula==v3.0.1",
+                              ]
+        new_requirements = [
+                                "test_organisation/test1-formula==v1.0.1",
+                                "test_organisation/test2-formula==v2.0.1",
+                                ]
+        actual_result = metadata.compare_requirements(previous_requirements,
+                                                      new_requirements)
+        expected_result = [
+                           ["test_organisation/test3-formula==v3.0.1", ""]
+                        ]
+        self.assertEqual(actual_result,
+                         expected_result,
+                         ("Comparison should have new entry\n"
+                          "Actual: '%s'\n"
+                          "Expected: %s\n")
+                         % (actual_result,
+                            expected_result))
+
+    def test_compare_requirements_new_versions(self):
+        """
+        TestShakerMetadata: Test comparing different requirements versions
+        """
+        previous_requirements = [
+                              "test_organisation/test1-formula==v1.0.10",
+                              "test_organisation/test2-formula==v2.0.1",
+                              "test_organisation/test3-formula==v3.0.1",
+                              ]
+        new_requirements = [
+                                "test_organisation/test1-formula==v1.0.1",
+                                "test_organisation/test2-formula==v2.0.10",
+                                "test_organisation/test3-formula==v3.0.1",
+
+                                ]
+        actual_result = metadata.compare_requirements(previous_requirements,
+                                                      new_requirements)
+        expected_result = [
+                            ["test_organisation/test1-formula==v1.0.10",
+                                "test_organisation/test1-formula==v1.0.1"],
+                            ["test_organisation/test2-formula==v2.0.1",
+                                "test_organisation/test2-formula==v2.0.10"]
+                        ]
+        self.assertEqual(actual_result,
+                         expected_result,
+                         ("Comparison should have new version\n"
+                          "Actual: '%s'\n"
+                          "Expected: %s\n")
+                         % (actual_result,
+                            expected_result))

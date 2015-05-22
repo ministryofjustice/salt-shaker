@@ -125,6 +125,9 @@ class TestShakerRemote(TestCase):
                                                    mock_create_directories,
                                                    mock_get_repository_sha,
                                                    mock_install_source):
+        """
+        TestShakerMetadata: Test installing dependencies with non-existent sha
+        """
         mock_create_directories.return_value = None
         mock_get_repository_sha.side_effect = ["fake_sha",
                                                None]

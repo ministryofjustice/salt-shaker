@@ -266,7 +266,7 @@ class TestShakerMetadata(TestCase):
         testobj._fetch_local_metadata()
         # No assert needed, we're testing for an exception
 
-    @patch('shaker.shaker_metadata.ShakerMetadata._parse_metadata_requirements')
+    @patch('shaker.libs.metadata.parse_metadata_requirements')
     @patch('shaker.shaker_metadata.ShakerMetadata._parse_metadata_name')
     @patch('shaker.shaker_metadata.ShakerMetadata._fetch_local_metadata')
     def test_load_local_metadata(self,
@@ -295,115 +295,6 @@ class TestShakerMetadata(TestCase):
                             self._sample_root_formula
                             )
                          )
-
-    @patch('shaker.libs.github.parse_github_url')
-    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_local_metadata')
-    @patch('shaker.shaker_metadata.ShakerMetadata.load_local_metadata')
-    @patch('shaker.shaker_metadata.ShakerMetadata.load_local_requirements')
-    def test__parse_metadata_requirements_raw(self,
-                                              mock_load_local_requirements,
-                                              mock_load_local_metadata,
-                                              mock_fetch_local_metadata,
-                                              mock_parse_github_url):
-        requirements = [
-            'git@github.com:test_organisation/some-formula.git==v1.0',
-            'git@github.com:test_organisation/another-formula.git>=v2.0'
-        ]
-
-        expected_result = {
-            'test_organisation/some-formula':
-            {
-                'source': 'git@github.com:test_organisation/some-formula.git',
-                'constraint': '==v1.0',
-                'sourced_constraints': [],
-                'organisation': 'test_organisation',
-                'name': 'some-formula'
-            },
-            'test_organisation/another-formula':
-            {
-                'source': 'git@github.com:test_organisation/another-formula.git',
-                'constraint': '>=v2.0',
-                'sourced_constraints': [],
-                'organisation': 'test_organisation',
-                'name': 'another-formula'
-            }
-        }
-        mock_parse_github_url.side_effect = [
-            {
-                'source': 'git@github.com:test_organisation/some-formula.git',
-                'constraint': '==v1.0',
-                'sourced_constraints': ['==v1.0'],
-                'organisation': 'test_organisation',
-                'name': 'some-formula'
-            },
-            {
-                'source': 'git@github.com:test_organisation/another-formula.git',
-                'constraint': '>=v2.0',
-                'sourced_constraints': ['==v2.0'],
-                'organisation': 'test_organisation',
-                'name': 'another-formula'
-            },
-            None
-        ]
-        # PEP8 requires unused mock being used
-        mock_load_local_requirements.return_value = None
-        mock_load_local_metadata.return_value = None
-        mock_fetch_local_metadata.return_value = None
-
-        testobj = ShakerMetadata()
-        actual_result = testobj._parse_metadata_requirements(requirements)
-
-        self.assertEqual(actual_result,
-                         expected_result,
-                         "TestShakerMetadata::test__parse_metadata_requirements_raw: Mismatch\n"
-                         "Actual: %s\nExpected: %s\n\n"
-                         % (actual_result,
-                            expected_result))
-
-    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_local_metadata')
-    @patch('shaker.shaker_metadata.ShakerMetadata.load_local_metadata')
-    @patch('shaker.shaker_metadata.ShakerMetadata.load_local_requirements')
-    def test__parse_metadata_requirements_simple(self,
-                                                 mock_load_local_requirements,
-                                                 mock_load_local_metadata,
-                                                 mock_fetch_local_metadata):
-        requirements = [
-            'test_organisation/some-formula==v1.0',
-            'test_organisation/another-formula>=v2.0'
-        ]
-
-        expected_result = {
-            'test_organisation/some-formula':
-            {
-                'source': 'git@github.com:test_organisation/some-formula.git',
-                'constraint': '==v1.0',
-                'sourced_constraints': [],
-                'organisation': 'test_organisation',
-                'name': 'some-formula'
-            },
-            'test_organisation/another-formula':
-            {
-                'source': 'git@github.com:test_organisation/another-formula.git',
-                'constraint': '>=v2.0',
-                'sourced_constraints': [],
-                'organisation': 'test_organisation',
-                'name': 'another-formula'
-            }
-        }
-
-        # PEP8 requires unused mock being used
-        mock_load_local_requirements.return_value = None
-        mock_load_local_metadata.return_value = None
-        mock_fetch_local_metadata.return_value = None
-
-        testobj = ShakerMetadata()
-        actual_result = testobj._parse_metadata_requirements(requirements)
-
-        self.assertEqual(actual_result,
-                         expected_result,
-                         "TestShakerMetadata::test__parse_metadata_requirements_simple: Mismatch\n"
-                         "Actual: %s\nExpected: %s\n\n"
-                         % (actual_result, expected_result))
 
     @patch('shaker.shaker_metadata.ShakerMetadata._fetch_remote_file')
     @patch('shaker.shaker_metadata.ShakerMetadata.load_local_metadata')

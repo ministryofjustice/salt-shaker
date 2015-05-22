@@ -14,6 +14,13 @@ class ShakerRequirementsUpdateException(Exception):
     pass
 
 
+class ShakerRequirementsParsingException(Exception):
+    """
+    Exception parsing salt-shakers requirements
+    """
+    pass
+
+
 class ConstraintFormatException(Exception):
     """
     Exception in the format of a constraint

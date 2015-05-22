@@ -108,7 +108,7 @@ class ShakerMetadata:
             if (root_dependencies):
                 # Root dependencies need to be differentiated so they can be used a the basis
                 # for a dependency refresh
-                self.root_metadata['dependencies'] = self._parse_metadata_requirements(root_dependencies)
+                self.root_metadata['dependencies'] = shaker.libs.metadata.parse_metadata_requirements(root_dependencies)
             else:
                 shaker.libs.logger.Logger().warning('ShakerMetadata::update_metadata: '
                                                     'No root dependencies found')
@@ -173,8 +173,8 @@ class ShakerMetadata:
                                           % (path))
         if not os.path.exists(path):
             shaker.libs.logger.Logger().debug('ShakerMetadata::load_local_requirements: '
-                                                'File not found %s'
-                                                % (path))
+                                              'File not found %s'
+                                              % (path))
             return False
         else:
             with open(path, 'r') as infile:
@@ -183,7 +183,7 @@ class ShakerMetadata:
                     loaded_dependencies.append(line)
 
             if len(loaded_dependencies) > 0:
-                self.local_requirements = self._parse_metadata_requirements(loaded_dependencies)
+                self.local_requirements = shaker.libs.metadata.parse_metadata_requirements(loaded_dependencies)
                 return True
             else:
                 shaker.libs.logger.Logger().warning("ShakerMetadata::load_local_requirements: "
@@ -272,105 +272,6 @@ class ShakerMetadata:
                 return root_name_entry
 
         return None
-
-    def _parse_metadata_requirements(self,
-                                     metadata_dependencies):
-        """
-        Parse the supplied metadata requirements of the format,
-        [
-            'git@github.com:test_organisation/some-formula.git==v1.0',
-            'git@github.com:test_organisation/another-formula.git==v2.0'
-        ]
-        or
-        [
-            'test_organisation/some-formula==v1.0',
-            'test_organisation/another-formula==v2.0'
-        ]
-        and return them in the format,
-
-        'test_organisation/some-formula':
-            {
-                'source': 'git@github.com:test_organisation/some-formula.git',
-                'constraint': '==1.0',
-                'sourced_constraints': ['==1.0'],
-                'organisation': 'test_organisation',
-                'name': 'some-formula'
-            }
-
-        Args:
-            metadata_requirements(string): String of metadata requirements
-
-        Return:
-            dependencies(dictionary): A collection of details on the
-            dependencies in the specified format
-
-        """
-        dependencies = {}
-        for metadata_dependency in metadata_dependencies:
-            # If we have a github url, then parse it, otherwise generate one
-            # From the simplified format. Pass this to th github url parser
-            # to ensure we are generating the same strucutres for both cases
-            metadata_info = {}
-            if (".git" in metadata_dependency or "git@" in metadata_dependency):
-                shaker.libs.logger.Logger().debug("ShakerMetadata::_parse_metadata_requirements: "
-                                                  "Parsing '%s' as raw github format\n"
-                                                  % (metadata_dependency))
-                metadata_info = shaker.libs.github.parse_github_url(metadata_dependency)
-            else:
-                parsed_entry = re.search('(.*)([=><]{2})\s*(.*)', metadata_dependency)
-                if parsed_entry and len(parsed_entry.groups()) >= 3:
-                    parsed_formula = parsed_entry.group(1)
-                    parsed_comparator = parsed_entry.group(2)
-                    parsed_version = parsed_entry.group(3)
-
-                    github_url = "git@github.com:{0}.git{1}{2}".format(parsed_formula,
-                                                                       parsed_comparator,
-                                                                       parsed_version)
-                    metadata_info = shaker.libs.github.parse_github_url(github_url)
-                    shaker.libs.logger.Logger().debug("ShakerMetadata::_parse_metadata_requirements: "
-                                                      "Parsing '%s' as simple format with constraint"
-                                                      % (metadata_dependency))
-
-                else:
-                    github_url = "git@github.com:%s.git" % (metadata_dependency)
-                    metadata_info = shaker.libs.github.parse_github_url(github_url)
-                    shaker.libs.logger.Logger().debug("ShakerMetadata::_parse_metadata_requirements: "
-                                                      "Parsing '%s' as simple format without constraint\n"
-                                                      % (metadata_dependency))
-
-            if metadata_info:
-                dependency_entry = {
-                    'source': metadata_info.get('source', None),
-                    'constraint': metadata_info.get('constraint', None),
-                    'sourced_constraints': [],
-                    'organisation': metadata_info.get('organisation', None),
-                    'name': metadata_info.get('name', None)
-                }
-                # Look for problems
-                format_check = (dependency_entry['source'] and
-                                dependency_entry['organisation'] and
-                                dependency_entry['name']
-                                )
-                if not format_check:
-                    msg = ("ShakerMetadata::_parse_metadata_requirements: "
-                           "Parsing '%s' as simple format without constraint\n"
-                           % (metadata_dependency))
-                    raise ShakerConfigException(msg)
-
-                dependency_key = "%s/%s" % (dependency_entry.get('organisation'),
-                                            dependency_entry.get('name'))
-                dependencies[dependency_key] = dependency_entry
-
-                shaker.libs.logger.Logger().debug("ShakerMetadata::_parse_metadata_requirements: "
-                                                  "Parsed entry %s %s\n from metadata: %s"
-                                                  % (metadata_dependency,
-                                                     dependency_entry,
-                                                     metadata_info))
-            else:
-                shaker.libs.logger.Logger().debug("ShakerMetadata::_parse_metadata_requirements: "
-                                                  "No data found for entry %s"
-                                                  % (metadata_info.get('source', None)))
-        return dependencies
 
     def _fetch_dependencies(self,
                             base_dependencies,
@@ -517,7 +418,7 @@ class ShakerMetadata:
         if metadata:
             data = yaml.load(metadata)
             parsed_data = self._parse_metadata_name(data)
-            parsed_data["dependencies"] = self._parse_metadata_requirements(data)
+            parsed_data["dependencies"] = shaker.libs.metadata.parse_metadata_requirements(data)
             for dependency_info in parsed_data["dependences"].values():
                 dependency_info['sourced_constraints'] = dependency_info.get('constraint', '')
                 shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_metadata: "
@@ -568,7 +469,7 @@ class ShakerMetadata:
         if raw_requirements:
             data = raw_requirements.split()
             if data:
-                parsed_data = self._parse_metadata_requirements(data)
+                parsed_data = shaker.libs.metadata.parse_metadata_requirements(data)
                 shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_requirements: "
                                                   "Found parsed_data %s"
                                                   % (parsed_data))
@@ -669,7 +570,7 @@ class ShakerMetadata:
             metadata_dependencies = metadata.get('dependencies',
                                                  None)
             if metadata_dependencies:
-                parsed_metadata_dependencies = self._parse_metadata_requirements(metadata_dependencies)
+                parsed_metadata_dependencies = shaker.libs.metadata.parse_metadata_requirements(metadata_dependencies)
                 for dep_key, dep_info in parsed_metadata_dependencies.items():
                     if dep_key != self.root_metadata.get('formula', None):
                         if dep_key not in self.dependencies:

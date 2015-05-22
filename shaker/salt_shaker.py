@@ -2,6 +2,7 @@ import logging
 import os
 
 from shaker.libs import logger
+from shaker.libs import metadata
 from shaker_metadata import ShakerMetadata
 from shaker_remote import ShakerRemote
 from shaker.libs.errors import ShakerRequirementsUpdateException
@@ -68,8 +69,97 @@ class Shaker(object):
         self._root_dir = root_dir
         self._shaker_metadata = ShakerMetadata(root_dir)
 
-    def load_requirements(self,
-                          enable_remote_check=False):
+    def install_requirements(self,
+                             simulate=False,
+                             enable_remote_check=False):
+        """
+        simulate(bool): True to only simulate the run,
+            false to carry it through for real
+        enable_remote_check(bool): True to enable remote
+            checks when installing pinned versions
+        """
+        logger.Logger().info("Shaker::install_requirements: "
+                             "Installing pinned requirements..."
+                             "dependencies will be installed "
+                             "from the stored formula requirements")
+        self._load_local_requirements()
+        self._install_versioned_requirements(overwrite=False,
+                                             simulate=simulate,
+                                             enable_remote_check=enable_remote_check)
+
+    def update_requirements(self,
+                            simulate=False):
+        """
+        Update the formula-requirements from the metadata,
+        then install them
+
+        Args:
+            simulate(bool): True to only simulate the run,
+                false to carry it through for real
+        """
+        logger.Logger().info("Shaker::install_requirements: "
+                             "Updating and Installing requirements..."
+                             "all dependencies will be "
+                             "re-calculated from the metadata")
+        self._update_local_requirements()
+        self._install_versioned_requirements(overwrite=True,
+                                             simulate=simulate,
+                                             enable_remote_check=True)
+
+    def check_requirements(self):
+        """
+        Check the current formula-requirements against those that
+        would be generated from the metadata,
+        """
+        logger.Logger().info("Shaker::check_requirements: "
+                             "Checking the current requirements "
+                             "against an update")
+        self._load_local_requirements(enable_remote_check=True)
+        current_requirements = self._shaker_remote.get_requirements()
+        self._update_local_requirements()
+        new_requirements = self._shaker_remote.get_requirements()
+
+        requirements_diff = metadata.compare_requirements(current_requirements,
+                                                          new_requirements)
+
+        if len(requirements_diff) == 0:
+            logger.Logger().info("Shaker::check_requirements: "
+                                 "No formula requirements changes found")
+        else:
+            for requirement_pair in requirements_diff:
+                first_entry = requirement_pair[0]
+                second_entry = requirement_pair[1]
+                if len(first_entry) == 0:
+                    logger.Logger().info("Shaker::check_requirements: "
+                                         "New entry %s"
+                                         % (second_entry))
+                elif len(second_entry) == 0:
+                    logger.Logger().info("Shaker::check_requirements: "
+                                         "Deprecated entry %s"
+                                         % (first_entry))
+                else:
+                    logger.Logger().info("Shaker::check_requirements: "
+                                         "Unequal entries %s != %s"
+                                         % (first_entry,
+                                            second_entry))
+        return requirements_diff
+
+    def get_deps(self,
+                 simulate=False):
+        """
+        (DEPRECATED) Update the formula-requirements from the metadata,
+        then install them
+
+        Args:
+            simulate(bool): True to only simulate the run,
+                false to carry it through for real
+        """
+        logger.Logger().info("(DEPRECATED) Shaker::get_deps: "
+                             "Please use Shaker::update_requirements")
+        self.update_requirements(simulate)
+
+    def _load_local_requirements(self,
+                                 enable_remote_check=False):
         """
         Load the requirements file and update the remote dependencies
 
@@ -85,7 +175,7 @@ class Shaker(object):
                                  "dependencies...")
             self._shaker_remote.update_dependencies()
 
-    def update_requirements(self):
+    def _update_local_requirements(self):
         """
         Update the requirements from metadata entries, overriding the
         current formula requirements
@@ -96,21 +186,11 @@ class Shaker(object):
         self._shaker_remote = ShakerRemote(self._shaker_metadata.dependencies)
         self._shaker_remote.update_dependencies()
 
-    def compare_requirements(self):
-        """
-        Checking metadata entries resolution against the current formula requirements
-        """
-        logger.Logger().info("Shaker: Checking the formula requirements...")
-
-        self._shaker_metadata.update_dependencies(ignore_local_requirements=True)
-        self._shaker_remote = ShakerRemote(self._shaker_metadata.dependencies)
-        self._shaker_remote.update_dependencies()
-
-    def install_requirements(self,
-                             overwrite=False,
-                             simulate=False,
-                             enable_remote_check=False
-                             ):
+    def _install_versioned_requirements(self,
+                                        overwrite=False,
+                                        simulate=False,
+                                        enable_remote_check=False
+                                        ):
         """
         Install all of the versioned requirements found
 
@@ -149,7 +229,7 @@ class Shaker(object):
                                     % (requirements))
 
 
-def setup_logging(level):
+def _setup_logging(level):
     """
     Initialise the default application logging
 
@@ -166,6 +246,7 @@ def shaker(root_dir='.',
            verbose=False,
            pinned=False,
            simulate=False,
+           check_requirements=False,
            enable_remote_check=False):
     """
     Utility task to initiate Shaker, setting up logging and
@@ -187,29 +268,20 @@ def shaker(root_dir='.',
             checks when installing pinned versions
     """
     if (debug):
-        setup_logging(logging.DEBUG)
+        _setup_logging(logging.DEBUG)
     elif (verbose):
-        setup_logging(logging.INFO)
+        _setup_logging(logging.INFO)
     else:
-        setup_logging(logging.WARNING)
+        _setup_logging(logging.INFO)
 
     if not os.path.exists(root_dir):
         os.makedirs(root_dir, 0755)
-    shaker_instance = Shaker(root_dir=root_dir)
 
-    if not pinned:
-        logger.Logger().info("Shaker: Installing..."
-                             "all dependencies will be "
-                             "re-calculated from the metadata")
-        shaker_instance.update_requirements()
-        shaker_instance.install_requirements(overwrite=True,
-                                             simulate=simulate,
-                                             enable_remote_check=True)
-    else:
-        logger.Logger().info("Shaker: Installing pinned dependencies..."
-                             "dependencies will be installed "
-                             "from the stored formula requirements")
-        shaker_instance.load_requirements()
-        shaker_instance.install_requirements(overwrite=False,
-                                             simulate=simulate,
+    shaker_instance = Shaker(root_dir=root_dir)
+    if check_requirements:
+        shaker_instance.check_requirements()
+    elif pinned:
+        shaker_instance.install_requirements(simulate=simulate,
                                              enable_remote_check=enable_remote_check)
+    else:
+        shaker_instance.update_requirements(simulate=simulate)

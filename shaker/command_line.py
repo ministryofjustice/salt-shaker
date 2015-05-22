@@ -40,6 +40,11 @@ class ShakerCommandLine(object):
         parser_refresh.set_defaults(pinned=True)
         parser_refresh.set_defaults(func=self.shake)
 
+        parser_check = subparsers.add_parser('check',
+                                             help=("Check versions of formulas against an update"))
+        parser_check.set_defaults(check_requirements=True)
+        parser_check.set_defaults(func=self.shake)
+
         args_ns = parser.parse_args(args=self.back_compat_args_fix(cli_args))
         # Convert the args as Namespace to dict a so we can pass it as kwargs to a function
         args = vars(args_ns)
