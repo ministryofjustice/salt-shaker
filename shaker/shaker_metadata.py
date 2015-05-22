@@ -317,7 +317,7 @@ class ShakerMetadata:
                                                   % (metadata_dependency))
                 metadata_info = shaker.libs.github.parse_github_url(metadata_dependency)
             else:
-                parsed_entry = re.search('(.*)([=><]{2})\s*(.*)', metadata_dependency)
+                parsed_entry = re.search('(\S*)\s*([=><]{2})\s*(.*)', metadata_dependency)
                 if parsed_entry and len(parsed_entry.groups()) >= 3:
                     parsed_formula = parsed_entry.group(1)
                     parsed_comparator = parsed_entry.group(2)
