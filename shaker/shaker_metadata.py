@@ -172,8 +172,8 @@ class ShakerMetadata:
                                           'Loading %s...'
                                           % (path))
         if not os.path.exists(path):
-            shaker.libs.logger.Logger().warning('ShakerMetadata::load_local_requirements: '
-                                                'File not found %s...'
+            shaker.libs.logger.Logger().debug('ShakerMetadata::load_local_requirements: '
+                                                'File not found %s'
                                                 % (path))
             return False
         else:
@@ -557,7 +557,7 @@ class ShakerMetadata:
                         'organisation': 'test_organisation',
                         'name': 'some-formula'
                     }
-                None type if there was a problem
+                None type if the repo has no requirements file or if there was a problem.
         """
         # Check for successful access and any credential problems
         raw_requirements = self._fetch_remote_file(org_name,
@@ -587,7 +587,7 @@ class ShakerMetadata:
             msg = ("ShakerMetadata::_fetch_remote_requirements: "
                    "No requirements found for %s/%s"
                    % (org_name, formula_name))
-            shaker.libs.logger.Logger().warning(msg)
+            shaker.libs.logger.Logger().debug(msg)
 
     def _fetch_remote_file(self,
                            org_name,
@@ -636,7 +636,9 @@ class ShakerMetadata:
         raw_data = requests.get(remote_file_url,
                                 auth=(github_token, 'x-oauth-basic')
                                 )
-        if shaker.libs.github.validate_github_access(raw_data):
+        shaker.libs.logger.Logger().debug("ShakerMetadata::_fetch_remote_file: "
+                                          "Calling github.validate_github_access with raw_data: " + str(raw_data)) 
+        if shaker.libs.github.validate_github_access(raw_data,remote_file_url):
             remote_dict = yaml.load(raw_data.content)
             return remote_dict
         else:

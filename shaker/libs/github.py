@@ -200,6 +200,11 @@ def get_valid_tags(org_name,
     tags_data = {}
     tags_json = requests.get(tags_url,
                              auth=(github_token, 'x-oauth-basic'))
+                             
+    shaker.libs.logger.Logger().debug("github::get_valid_tags: "
+                                      "Calling validate_github_access with %s "
+                                      + str(tags_json))
+                                      
     # Check for successful access and any credential problems
     if validate_github_access(tags_json):
         try:
@@ -278,9 +283,10 @@ def get_branch_data(org_name,
                                       % (branch_url))
     branch_json = requests.get(branch_url,
                                auth=(github_token, 'x-oauth-basic'))
+                               
     shaker.libs.logger.Logger().debug("github::get_branch_data: "
-                                      "branch_json %s "
-                                      % (str(branch_json)))
+                                      "Calling validate_github_access with %s "
+                                      + str(branch_json))
     # Check for successful access and any credential problems
     if validate_github_access(branch_json):
         try:
@@ -590,6 +596,8 @@ def get_valid_github_token(online_validation_enabled=False):
                                     auth=(os.environ["GITHUB_TOKEN"],
                                           'x-oauth-basic'))
 
+            shaker.libs.logger.Logger().debug("github::get_valid_github_token:"
+                                              "Calling validate_github_access with %s" % (str(response)))
             # Validate the response against expected status codes
             # Set the return value to the token if we have success
             valid_response = validate_github_access(response)
@@ -604,7 +612,7 @@ def get_valid_github_token(online_validation_enabled=False):
     return github_token
 
 
-def validate_github_access(response):
+def validate_github_access(response,url=None):
     """
     Validate the github api's response for known credential problems
 
@@ -634,6 +642,8 @@ def validate_github_access(response):
     """
 
     # Assume invalid credentials unless proved otherwise
+    shaker.libs.logger.Logger().debug("github::validate_github_access:starts here:response: %s" 
+                                        % str(response))
 
     if (type(response) == requests.models.Response):
 
@@ -648,6 +658,7 @@ def validate_github_access(response):
             try:
                 # Access the responses body as json
                 response_json = json.loads(response.text)
+
                 if "message" in response_json:
                     response_message = response_json["message"]
                 shaker.libs.logger.Logger().debug("Github credentials test got response: %s"
@@ -661,8 +672,8 @@ def validate_github_access(response):
                     shaker.libs.logger.Logger().error("validate_github_access: "
                                                       "Github credentials failed due to lockout: %s" % response_message)
                 elif response.status_code == 404:
-                    shaker.libs.logger.Logger().warning("validate_github_access: "
-                                                        "URL not found")
+                    shaker.libs.logger.Logger().debug("github::validate_github_access: "
+                                                        "URL %s not found" % url)
                 else:
                     shaker.libs.logger.Logger().warning("validate_github_access: "
                                                         "Unknown problem checking credentials: %s" % response)
