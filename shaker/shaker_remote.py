@@ -4,6 +4,7 @@ import shutil
 
 import shaker.libs.github
 import shaker.libs.logger
+from shaker.libs.errors import ConstraintResolutionException
 
 
 class ShakerRemote:
@@ -51,7 +52,8 @@ class ShakerRemote:
 
     def install_dependencies(self,
                              overwrite=False,
-                             remove_directories=True):
+                             remove_directories=True,
+                             enable_remote_check=False):
         """
         Install the dependency as specified by the formula dictionary and
         return the directory symlinked into the roots_dir
@@ -61,6 +63,8 @@ class ShakerRemote:
                 directories, False to preserve them
             remove_directories(bool): True to delete unused directories,
                 False to preserve them
+            enable_remote_check(bool): False to update repositories directly,
+                True to contact github to find shas
         Returns:
             tuple: Tuple of successful, skipped repository updates
         """
@@ -71,8 +75,30 @@ class ShakerRemote:
                                    self._install_directory)
         for dependency in self._dependencies.values():
             dependency_name = dependency.get("name", None)
+
+            use_tag = False
+            if not enable_remote_check:
+                dependency_constraint = dependency.get("constraint", None)
+                parsed_dependency_constraint = shaker.libs.metadata.parse_constraint(dependency_constraint)
+                dependency_tag = parsed_dependency_constraint.get("tag", None)
+                shaker.libs.logger.Logger().debug("ShakerRemote::install_dependencies: "
+                                                  "No remote checks, found tag '%s'"
+                                                  % (dependency_tag))
+                if dependency_tag is not None:
+                    dependency["tag"] = dependency_tag
+                    use_tag = True
+                else:
+                    msg = ("ShakerRemote::instalL_dependencies: "
+                           "No tag found when remote checks disabled")
+                    raise ConstraintResolutionException(msg)
+            else:
+                shaker.libs.logger.Logger().debug("ShakerRemote::install_dependencies: "
+                                                  "Remote checks enabled on dependency %s"
+                                                  % (dependency))
+
             success = shaker.libs.github.install_source(dependency,
-                                                        install_dir)
+                                                        install_dir,
+                                                        use_tag)
             shaker.libs.logger.Logger().debug("ShakerRemote::install_dependencies: "
                                               "Installed '%s to directory '%s': %s"
                                               % (dependency_name,
@@ -83,6 +109,22 @@ class ShakerRemote:
             else:
                 unsuccessful_updates += 1
 
+            success_message = "FAIL"
+            if success:
+                success_message = "OK"
+
+            if (use_tag):
+                shaker.libs.logger.Logger().info("ShakerRemote::install_dependencies: "
+                                                 "Updating '%s' from tag '%s'...%s"
+                                                 % (dependency_name,
+                                                    dependency_tag,
+                                                    success_message))
+            else:
+                shaker.libs.logger.Logger().info("ShakerRemote::install_dependencies: "
+                                                 "Updating '%s' from raw sha '%s'...%s"
+                                                 % (dependency_name,
+                                                    dependency.get("sha", None),
+                                                    success_message))
         if remove_directories:
             for pathname in os.listdir(install_dir):
                     found = False

@@ -726,10 +726,13 @@ def open_repository(url,
 
 
 def install_source(target_source,
-                   target_directory):
+                   target_directory,
+                   use_tag=False):
     """
     Install the requirement as specified by the formula dictionary and
-    return the directory symlinked into the roots_dir
+    return the directory symlinked into the roots_dir. The sha revision
+    will be checked out if specified, and if not, then the tag will be
+    checked out if present
 
     Args:
         target_source(dictionary): A keyed collection of information about the
@@ -737,56 +740,98 @@ def install_source(target_source,
             {
                 'name': '<target_name>',
                 'url': '<target_url>',
-                sha: The sha revision to install
+                'sha': <sha revision to checkout>,
+                'tag': <tag version to checkout>,
             }
         target_directory(string): THe directory to install into
+        use_tag(bool): True to use the tag value for versioning,
+            False otherwise
     """
+    shaker.libs.logger.Logger().debug("install_source(%s, %s, %s)"
+                                      % (target_source,
+                                         target_directory,
+                                         use_tag))
     target_name = target_source.get('name', None)
     target_url = target_source.get('source', None)
     target_sha = target_source.get('sha', None)
+    target_tag = target_source.get('tag', None)
+
     target_path = os.path.join(target_directory,
                                target_name)
     shaker.libs.logger.Logger().debug("install_source: Opening %s in directory %s, "
-                                      "with url %s, and sha %s"
+                                      "with url %s, sha %s, tag %s"
                                       % (target_name,
                                          target_directory,
                                          target_url,
-                                         target_sha))
+                                         target_sha,
+                                         target_tag))
     target_repository = open_repository(target_url, target_path)
 
-    current_sha = get_repository_sha(target_path,
-                                     revision='HEAD')
+    if use_tag:
+        if target_tag is None:
+            shaker.libs.logger.Logger().error("github::install_source: Tag usage specified but is empty")
+            return False
+        # Look for tag, if not then look for branch
+        try:
+            parsed_tag = target_repository.revparse_single(target_tag)
+            target_sha = parsed_tag.hex
+            shaker.libs.logger.Logger().debug("github::install_source: Found tag sha '%s' for tag '%s'"
+                                              % (target_sha, target_tag))
+        except KeyError:
+            # Try to find the branch
+            branch = target_repository.lookup_branch(("origin/%s" % target_tag),
+                                                     pygit2.GIT_BRANCH_REMOTE)
 
-    # If the local and target shas are the same, skip
-    # otherwise, update the repository
-    if current_sha == target_sha:
-        shaker.libs.logger.Logger().debug("github::install_source: %s: "
-                                          "Target and current shas are equivalent..."
-                                          "skipping update: %s"
-                                          % (target_path,
-                                             target_sha))
-        return False
+            if branch is not None:
+                target_repository.checkout(branch)
+                parsed_tag = target_repository.revparse_single('HEAD')
+                target_sha = parsed_tag.hex
+            else:
+                shaker.libs.logger.Logger().debug("github::install_source: "
+                                                  "Could not find branch '%s', '%s'"
+                                                  % (target_tag, branch))
+                # We couldnt resolve this tag
+                shaker.libs.logger.Logger().error("github::install_source: Could not find tag or branch %s"
+                                                  % (target_tag))
+                return False
+    # Use the sha target if it exists, otherwise try the tag value
+    else:
+        if target_sha is None:
+            shaker.libs.logger.Logger().error("github::install_source: Raw sha usage specified but is empty")
+            return False
 
-    oid = pygit2.Oid(hex=target_sha)
-    target_repository.checkout_tree(target_repository[oid].tree)
-    shaker.libs.logger.Logger().debug("github::install_source: Checking out sha '%s' into '%s"
-                                      % (target_sha, target_path))
+        current_sha = get_repository_sha(target_path,
+                                         revision='HEAD')
+        # If the local and target shas are the same, skip
+        # otherwise, update the repository
+        if current_sha == target_sha:
+            shaker.libs.logger.Logger().debug("github::install_source: %s: "
+                                              "Target and current shas are equivalent..."
+                                              "skipping update: %s"
+                                              % (target_path,
+                                                 target_sha))
+            return True
+        else:
+            shaker.libs.logger.Logger().debug("github::install_source: Found raw sha '%s'"
+                                              % (target_sha))
+
+    # We should have a sha now, use it to setup the repos
+    target_oid = pygit2.Oid(hex=target_sha)
+
+    target_repository.checkout_tree(target_repository[target_oid].tree)
+    shaker.libs.logger.Logger().debug("github::install_source: Checking out oid '%s' in '%s"
+                                      % (target_oid, target_path))
     # The line below is *NOT* just setting a value.
     # Pygit2 internally resets the head of the filesystem to the OID we set.
-    #
-    #
-    # In other words .... *** WARNING: MAGIC IN PROGRESS ***
-    target_repository.set_head(oid)
+    target_repository.set_head(target_oid)
 
     if target_repository.head.get_object().hex != target_sha:
         shaker.libs.logger.Logger().debug("Resetting sha mismatch on source '%s'"
                                           % (target_name))
         target_repository.reset(target_sha, pygit2.GIT_RESET_HARD)
-        # repo.head.reset(commit=sha, index=True, working_tree=True)
 
     shaker.libs.logger.Logger().debug("Source '%s' is at version '%s'"
                                       % (target_name, target_sha))
-
     return True
 
 

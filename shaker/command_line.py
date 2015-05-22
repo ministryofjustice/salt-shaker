@@ -14,17 +14,18 @@ class ShakerCommandLine(object):
                             default='.',
                             help="Working path to operate under")
         parser.add_argument('--verbose',
-                            '-v',
                             action='store_true',
                             help="Enable verbose logging")
         parser.add_argument('--debug',
-                            '-d',
                             action='store_true',
                             help="Enable debug logging")
         parser.add_argument('--simulate',
                             '-s',
                             action='store_true',
                             help="Only simulate the command, do not commit any changes")
+        parser.add_argument('--enable-remote-check',
+                            action='store_true',
+                            help="Enable remote checks when installing pinned versions")
 
         parser_install = subparsers.add_parser('install',
                                                help=("Install formulas and requirements from metadata.yml, "

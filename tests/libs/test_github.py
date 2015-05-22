@@ -593,7 +593,7 @@ class TestGithub(unittest.TestCase):
         formula = 'test-formula'
         branch_name = 'branch-01'
         constraint = '==%s' % branch_name
-        tag_data = shaker.libs.github.resolve_constraint_to_object(org,
-                                                                   formula,
-                                                                   constraint)
+        shaker.libs.github.resolve_constraint_to_object(org,
+                                                        formula,
+                                                        constraint)
         # We're testing for exceptions, No assertion needed
