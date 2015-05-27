@@ -242,6 +242,53 @@ class TestMetadata(TestCase):
                          "Actual: %s\nExpected: %s\n\n"
                          % (actual_result, expected_result))
 
+    @patch('shaker.shaker_metadata.ShakerMetadata._fetch_local_metadata')
+    @patch('shaker.shaker_metadata.ShakerMetadata.load_local_metadata')
+    @patch('shaker.shaker_metadata.ShakerMetadata.load_local_requirements')
+    def test_parse_metadata_requirements_simple_with_blanks(self,
+                                                mock_load_local_requirements,
+                                                mock_load_local_metadata,
+                                                mock_fetch_local_metadata):
+        """
+        TestMetadata: Test that blanks are accepted in the formula constraints
+        """
+        requirements = [
+            'test_organisation/some-formula ==   v1.0',
+            'test_organisation/another-formula >= v2.0'
+        ]
+
+        expected_result = {
+            'test_organisation/some-formula':
+            {
+                'source': 'git@github.com:test_organisation/some-formula.git',
+                'constraint': '==v1.0',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'some-formula'
+            },
+            'test_organisation/another-formula':
+            {
+                'source': 'git@github.com:test_organisation/another-formula.git',
+                'constraint': '>=v2.0',
+                'sourced_constraints': [],
+                'organisation': 'test_organisation',
+                'name': 'another-formula'
+            }
+        }
+
+        # PEP8 requires unused mock being used
+        mock_load_local_requirements.return_value = None
+        mock_load_local_metadata.return_value = None
+        mock_fetch_local_metadata.return_value = None
+
+        actual_result = metadata.parse_metadata_requirements(requirements)
+
+        self.assertEqual(actual_result,
+                         expected_result,
+                         "TestShakerMetadata::test_parse_metadata_requirements_simple_with_blanks: Mismatch\n"
+                         "Actual: %s\nExpected: %s\n\n"
+                         % (actual_result, expected_result))
+
     def test_compare_requirements_equal(self):
         """
         TestShakerMetadata: Test comparing different requirements equal

@@ -235,10 +235,12 @@ def parse_metadata_requirements(metadata_dependencies):
         else:
             parsed_entry = re.search('(.*)([=><]{2})\s*(.*)', metadata_dependency)
             if parsed_entry and len(parsed_entry.groups()) >= 3:
-                parsed_formula = parsed_entry.group(1)
-                parsed_comparator = parsed_entry.group(2)
-                parsed_version = parsed_entry.group(3)
-
+                parsed_formula = parsed_entry.group(1).strip()
+                parsed_comparator = parsed_entry.group(2).strip()
+                parsed_version = parsed_entry.group(3).strip()
+                shaker.libs.logger.Logger().debug("metadata::parse_metadata_requirements: "
+                                                  "parsed values for formula >%s< comparator >%s< version >%s<"
+                                                  % (parsed_formula, parsed_formula, parsed_version))
                 github_url = "git@github.com:{0}.git{1}{2}".format(parsed_formula,
                                                                    parsed_comparator,
                                                                    parsed_version)
