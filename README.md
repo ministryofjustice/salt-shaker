@@ -91,3 +91,11 @@ There are a few flags that can be passed to alter salt-shakers behaviour.
 --root_dir: Specify the root directory for salt-shaker to work in
 
 --verbose, --debug: Increase the level of logging output from salt-shaker
+
+# Running the tests
+
+It's as simple as running this command:
+
+```
+python setup.py nosetests
+```

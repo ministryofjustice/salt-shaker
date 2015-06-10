@@ -1,9 +1,0 @@
-mock
-nose
-parse
-pygit2
-PyYAML
-requests
-responses
-testfixtures
-

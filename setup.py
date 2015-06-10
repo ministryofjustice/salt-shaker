@@ -18,7 +18,10 @@ setup(
     ],
     tests_require=[
         'responses',
+        'testfixtures',
+        'mock',
     ],
-    setup_requires=['nose>=1.0', 'testfixtures'],
+    test_suite='nose.collector',
+    setup_requires=['nose>=1.0'],
     scripts=['scripts/salt-shaker'],
 )
