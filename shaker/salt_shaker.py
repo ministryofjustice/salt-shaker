@@ -1,5 +1,6 @@
 import logging
 import os
+import warnings
 
 from shaker.libs import logger
 from shaker.libs import metadata
@@ -144,20 +145,6 @@ class Shaker(object):
                                             second_entry))
         return requirements_diff
 
-    def get_deps(self,
-                 simulate=False):
-        """
-        (DEPRECATED) Update the formula-requirements from the metadata,
-        then install them
-
-        Args:
-            simulate(bool): True to only simulate the run,
-                false to carry it through for real
-        """
-        logger.Logger().info("(DEPRECATED) Shaker::get_deps: "
-                             "Please use Shaker::update_requirements")
-        self.update_requirements(simulate)
-
     def _load_local_requirements(self,
                                  enable_remote_check=False):
         """
@@ -285,3 +272,19 @@ def shaker(root_dir='.',
                                              enable_remote_check=enable_remote_check)
     else:
         shaker_instance.update_requirements(simulate=simulate)
+
+def get_deps(root_dir, root_formula=None, constraint=None, force=False):
+    """
+    (DEPRECATED) Update the formula-requirements from the metadata.yaml,
+    then install them
+
+    Args:
+        simulate(bool): True to only simulate the run,
+            false to carry it through for real
+    """
+    # This filterwarning makes sure we always see *this* log message
+    warnings.filterwarnings("once", "shaker\.salt_shaker\.get_deps.*", DeprecationWarning)
+    # Then issue a warning form the caller's perspective
+    warnings.warn("shaker.salt_shaker.get_deps has been deprecated. Use `shaker.salt_shaker.shaker(root_dir=...)` instead", DeprecationWarning, stacklevel=2)
+
+    return shaker(root_dir, pinned=not force, enable_remote_check=True)
