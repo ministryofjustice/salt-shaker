@@ -432,48 +432,56 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
     # do we have a constraint?
     if constraint:
         # is it a branch or a tag?
-        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                           "constraint is not empty '%s'"
-                                          % (constraint))
+                                          % (org_name, formula_name, constraint))
         parsed_constraint = metadata.parse_constraint(constraint)
-        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                           "parsed_constraint '%s'"
-                                          % (str(parsed_constraint)))
+                                          % (org_name, formula_name, str(parsed_constraint)))
         # is it a branch (i.e. not a version)
         if not parsed_constraint['version']:
             branch_name = parsed_constraint['tag']
-            shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+            shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                               "There is no version, assuming this is "
                                               "a branch, name: '%s'"
-                                              % (branch_name))
+                                              % (org_name, formula_name, branch_name))
             branch_data = get_branch_data(org_name, formula_name, branch_name)
             if not branch_data:
-                raise ConstraintResolutionException("github::resolve_constraint_to_object: "
+                raise ConstraintResolutionException("github::resolve_constraint_to_object: %s/%s: "
                                                     "github did not return any value for "
                                                     "branch '%s'"
-                                                    % (branch_name))
+                                                    % (org_name, formula_name, branch_name))
             return branch_data
 
     # carry on with version analyses
     wanted_tag, tag_versions, tags_data = get_valid_tags(org_name, formula_name)
     if not constraint or (constraint == ''):
-        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                           "No constraint specified, returning '%s'"
-                                          % (wanted_tag))
+                                          % (org_name,
+                                             formula_name,
+                                             wanted_tag))
         obj = None
-        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                           "type of tags_data: %s"
-                                          % (type(tags_data)))
+                                          % (org_name,
+                                             formula_name,
+                                             type(tags_data)))
         for tag_data in tags_data:
             if tag_data["name"] == wanted_tag:
                 obj = tag_data
-                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                                   "type of (note no s!) tag_data: %s"
-                                                  % (type(tag_data)))
+                                                  % (org_name,
+                                                     formula_name,
+                                                     type(tag_data)))
                 break
-        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+        shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                           "returning obj: '%s' type: %s"
-                                          % (str(obj), type(obj)))
+                                          % (org_name,
+                                             formula_name,
+                                             str(obj), type(obj)))
         return obj
 
     parsed_constraint = metadata.parse_constraint(constraint)
@@ -485,9 +493,11 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
     if tag_versions and parsed_version:
         if parsed_comparator == '==':
             if parsed_version in tag_versions:
-                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                                   "Found exact version '%s'"
-                                                  % (parsed_version))
+                                                  % (org_name,
+                                                     formula_name,
+                                                     parsed_version))
                 obj = None
                 for tag_data in tags_data:
                     if tag_data["name"] == parsed_tag:
@@ -495,10 +505,12 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                         break
                 return obj
             else:
-                raise ConstraintResolutionException("github::resolve_constraint_to_object: "
-                                                    "Could not satisfy constraint '%s', "
+                raise ConstraintResolutionException("github::resolve_constraint_to_object: %s/%s: "
+                                                    "Could not satisfy constraint for '%s', "
                                                     " version %s not in tag list %s"
-                                                    % (constraint,
+                                                    % (org_name,
+                                                       formula_name,
+                                                       constraint,
                                                        parsed_constraint,
                                                        tag_versions))
         else:
@@ -514,13 +526,17 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                             valid_version = tag_version
                             break
                         else:
-                            shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                            shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                                               "Skipping pre-release version '%s'"
-                                                              % (tag_version))
+                                                              % (org_name,
+                                                                 formula_name,
+                                                                 tag_version))
                     else:
-                        raise ConstraintResolutionException("github::resolve_constraint_to_object: "
+                        raise ConstraintResolutionException("github::resolve_constraint_to_object: %s/%s: "
                                                             " No non-prerelease version found %s"
-                                                            % (constraint))
+                                                            % (org_name,
+                                                               formula_name,
+                                                               constraint))
 
             elif parsed_comparator == '<=':
                 valid_version = None
@@ -530,23 +546,31 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
                             valid_version = tag_version
                             break
                         else:
-                            shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                            shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                                               "Skipping pre-release version '%s'"
-                                                              % (tag_version))
+                                                              % (org_name,
+                                                                 formula_name,
+                                                                 tag_version))
 
                 if not valid_version:
-                    raise ConstraintResolutionException("github::resolve_constraint_to_object: "
-                                                        " No non-prerelease version found %s"
-                                                        % (constraint))
+                    raise ConstraintResolutionException("github::resolve_constraint_to_object: %s/%s: "
+                                                        " No non-prerelease version found '%s'"
+                                                        % (org_name,
+                                                           formula_name,
+                                                           constraint))
             else:
                 msg = ("github::resolve_constraint_to_object: "
-                       "Unknown comparator '%s'" % (parsed_comparator))
+                       "Unknown comparator '%s/%s%s'" % (org_name,
+                                                         formula_name,
+                                                         parsed_comparator))
                 raise ConstraintResolutionException(msg)
 
             if valid_version:
-                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: "
+                shaker.libs.logger.Logger().debug("github::resolve_constraint_to_object: %s/%s: "
                                                   "resolve_constraint_to_object:Found valid version '%s'"
-                                                  % (valid_version))
+                                                  % (org_name,
+                                                     formula_name,
+                                                     valid_version))
                 valid_tag = 'v%s' % valid_version
                 obj = None
                 for tag_data in tags_data:
@@ -556,17 +580,19 @@ def resolve_constraint_to_object(org_name, formula_name, constraint):
 
                 return obj
             else:
-                raise ConstraintResolutionException("github::resolve_constraint_to_object: "
-                                                    'Constraint %s cannot be satisfied for %s/%s'
-                                                    % (constraint, org_name, formula_name))
+                raise ConstraintResolutionException("github::resolve_constraint_to_object: %s/%s: "
+                                                    'Constraint %s cannot be satisfied'
+                                                    % (org_name,
+                                                       formula_name,
+                                                       constraint))
     else:
         msg = ("github::resolve_constraint_to_object: "
                "Unknown parsed constraint '%s' from '%s'" % (parsed_constraint, constraint))
         raise ConstraintResolutionException(msg)
-    raise ConstraintResolutionException("github::resolve_constraint_to_object: "
-                                        'Constraint {} cannot be satisfied for {}/{}'.format(constraint,
-                                                                                             org_name,
-                                                                                             formula_name))
+    raise ConstraintResolutionException("github::resolve_constraint_to_object: %s/%s: "
+                                        'Constraint {} cannot be satisfied'.format(org_name,
+                                                                                   formula_name,
+                                                                                   constraint))
     return None
 
 
