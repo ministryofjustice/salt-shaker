@@ -652,3 +652,32 @@ class TestShakerMetadata(TestCase):
             mock_path_exists.assert_called_once_with('./test')
             mopen.assert_called_once_with('./test', 'r')
             testfixtures.compare(tempobj.local_requirements, self._sample_dependencies)
+
+    @patch('os.path.exists')
+    def test_load_local_requirements__with_blanks(self,
+                                                  mock_path_exists
+                                                  ):
+        """
+        TestShakerMetadata::test_load_local_requirements: Test loading from local dependency file with blanks and comments
+        """
+        # Setup
+        mock_path_exists.return_value = True
+        text_file_data = '\n'.join(["git@github.com:test_organisation/test1-formula.git==v1.0.1",
+                                    "",
+                                    "git@github.com:test_organisation/test2-formula.git==v2.0.1",
+                                    "             ",
+                                    "#DONT_READ_ME",
+                                    "git@github.com:test_organisation/test3-formula.git==v3.0.1"])
+        with patch('__builtin__.open',
+                   mock_open(read_data=()),
+                   create=True) as mopen:
+            mopen.return_value.__iter__.return_value = text_file_data.splitlines()
+
+            shaker.libs.logger.Logger().setLevel(logging.DEBUG)
+            tempobj = ShakerMetadata(autoload=False)
+            input_directory = '.'
+            input_filename = 'test'
+            tempobj.load_local_requirements(input_directory, input_filename)
+            mock_path_exists.assert_called_once_with('./test')
+            mopen.assert_called_once_with('./test', 'r')
+            testfixtures.compare(tempobj.local_requirements, self._sample_dependencies)

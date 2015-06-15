@@ -180,7 +180,9 @@ class ShakerMetadata:
             with open(path, 'r') as infile:
                 loaded_dependencies = []
                 for line in infile:
-                    loaded_dependencies.append(line)
+                    stripped_line = line.strip()
+                    if len(stripped_line) > 0 and stripped_line[0] != '#':
+                        loaded_dependencies.append(line)
 
             if len(loaded_dependencies) > 0:
                 self.local_requirements = shaker.libs.metadata.parse_metadata_requirements(loaded_dependencies)
