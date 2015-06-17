@@ -103,42 +103,46 @@ def parse_semver_tag(tag):
         "patch": None,
         "postfix": None,
     }
-    if '-' in tag:
-        parsed_results = parse('v{major:d}.{minor:d}.{patch:d}-{postfix}', tag)
-        if not parsed_results:
-            shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
-                                              "Failed to parse pre-release %s'"
-                                              % (tag))
-            return retval
 
-        retval = {
-            "major": parsed_results["major"],
-            "minor": parsed_results["minor"],
-            "patch": parsed_results["patch"],
-            "postfix": parsed_results["postfix"],
-        }
-        shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
-                                          "Found %s'"
-                                          % (retval))
-        return retval
-    else:
+    # Use these regexs to determine the accetable tag type
+    version_comparators = {
+        'release': 'v(\d+).(\d+).(\d+)$',
+        'prerelease': 'v(\d+).(\d+).(\d+)-(.+)',
+        'prerelease-compat': 'v(\d+).(\d+).(\d+)(.+)',
+    }
+
+    # Check for a release v1.2.3
+    if re.match(version_comparators["release"], tag):
         parsed_results = parse('v{major:d}.{minor:d}.{patch:d}', tag)
-        if not parsed_results:
-            shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
-                                              "Failed to parse release %s'"
-                                              % (tag))
-            return retval
-
         retval = {
             "major": parsed_results["major"],
             "minor": parsed_results["minor"],
             "patch": parsed_results["patch"],
             "postfix": None,
         }
+    # Check for a semver compliant prerelease v1.2.3-pre1
+    elif re.match(version_comparators["prerelease"], tag):
+        parsed_results = parse('v{major:d}.{minor:d}.{patch:d}-{postfix}', tag)
+        retval = {
+            "major": parsed_results["major"],
+            "minor": parsed_results["minor"],
+            "patch": parsed_results["patch"],
+            "postfix": parsed_results["postfix"],
+        }
+    # Check for a non-semver compliant prerelease v1.2.3pre1
+    elif re.match(version_comparators["prerelease-compat"], tag):
+        parsed_results = re.match(version_comparators["prerelease-compat"], tag).groups()
+        retval = {
+            "major": int(parsed_results[0]),
+            "minor": int(parsed_results[1]),
+            "patch": int(parsed_results[2]),
+            "postfix": parsed_results[3],
+        }
+    # Not an acceptable versioned tag
+    else:
         shaker.libs.logger.Logger().debug("github::parse_semver_tag: "
-                                          "Found %s'"
-                                          % (retval))
-        return retval
+                                          "Failed to parse tag %s'"
+                                          % (tag))
 
     return retval
 
@@ -200,11 +204,11 @@ def get_valid_tags(org_name,
     tags_data = {}
     tags_json = requests.get(tags_url,
                              auth=(github_token, 'x-oauth-basic'))
-                             
+
     shaker.libs.logger.Logger().debug("github::get_valid_tags: "
                                       "Calling validate_github_access with %s "
-                                      + str(tags_json))
-                                      
+                                      % str(tags_json))
+
     # Check for successful access and any credential problems
     if validate_github_access(tags_json):
         try:
@@ -283,10 +287,10 @@ def get_branch_data(org_name,
                                       % (branch_url))
     branch_json = requests.get(branch_url,
                                auth=(github_token, 'x-oauth-basic'))
-                               
+
     shaker.libs.logger.Logger().debug("github::get_branch_data: "
                                       "Calling validate_github_access with %s "
-                                      + str(branch_json))
+                                      % str(branch_json))
     # Check for successful access and any credential problems
     if validate_github_access(branch_json):
         try:
@@ -638,7 +642,7 @@ def get_valid_github_token(online_validation_enabled=False):
     return github_token
 
 
-def validate_github_access(response,url=None):
+def validate_github_access(response, url=None):
     """
     Validate the github api's response for known credential problems
 
@@ -668,8 +672,8 @@ def validate_github_access(response,url=None):
     """
 
     # Assume invalid credentials unless proved otherwise
-    shaker.libs.logger.Logger().debug("github::validate_github_access:starts here:response: %s" 
-                                        % str(response))
+    shaker.libs.logger.Logger().debug("github::validate_github_access:starts here:response: %s"
+                                      % str(response))
 
     if (type(response) == requests.models.Response):
 
@@ -699,7 +703,7 @@ def validate_github_access(response,url=None):
                                                       "Github credentials failed due to lockout: %s" % response_message)
                 elif response.status_code == 404:
                     shaker.libs.logger.Logger().debug("github::validate_github_access: "
-                                                        "URL %s not found" % url)
+                                                      "URL %s not found" % url)
                 else:
                     shaker.libs.logger.Logger().warning("validate_github_access: "
                                                         "Unknown problem checking credentials: %s" % response)

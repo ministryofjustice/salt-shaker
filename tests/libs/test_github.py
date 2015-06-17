@@ -34,18 +34,18 @@ class TestGithub(unittest.TestCase):
     ]
 
     _sample_response_branches = {
-          "name": "branch-01",
-          "commit": {
+        "name": "branch-01",
+        "commit": {
             "sha": "1035f6628a5991bd8b5d7b35affaf5b22f738287",
             "commit": {
-              "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/git/commits/1035f6628a5991bd8b5d7b35affaf5b22f738287",
-              "comment_count": 0
+                "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/git/commits/1035f6628a5991bd8b5d7b35affaf5b22f738287",
+                "comment_count": 0
             },
             "url": "https://api.github.com/repos/ministryofjustice/sensu-formula/commits/1035f6628a5991bd8b5d7b35affaf5b22f738287",
             "html_url": "https://github.com/ministryofjustice/sensu-formula/commit/1035f6628a5991bd8b5d7b35affaf5b22f738287",
             "comments_url": "https://api.github.com/repos/ministryofjustice/sensu-formula/commits/1035f6628a5991bd8b5d7b35affaf5b22f738287/comments",
-          },
-      }
+        },
+    }
 
     def setUp(self):
         unittest.TestCase.setUp(self)
@@ -426,9 +426,9 @@ class TestGithub(unittest.TestCase):
             "1.1.1",
             "2.2.2-prerelease",
             "notathing",
-            "3.3.3stillnotathing"
+            "3.3.3prerelease2"
         ]
-        expected_lastest_tag = "2.2.2-prerelease"
+        expected_lastest_tag = "3.3.3prerelease2"
 
         actual_latest_tag = shaker.libs.github.get_latest_tag(tag_versions, include_prereleases)
         self.assertEqual(actual_latest_tag,
@@ -473,17 +473,35 @@ class TestGithub(unittest.TestCase):
                          % (result,
                             expected_result))
 
-    def test_parse_semver_tag_noncompliant(self):
+    def test_parse_semver_tag_noncompliant_prerelease(self):
         """
-        Parse a valid release tag
+        Parse a prerelease with a non-compliant tag
         """
         tag = "v1.2.3ijidsja"
         result = shaker.libs.github.parse_semver_tag(tag)
         expected_result = {
-            "major": None,
-            "minor": None,
-            "patch": None,
-            "postfix": None
+            "major": 1,
+            "minor": 2,
+            "patch": 3,
+            "postfix": 'ijidsja'
+        }
+        self.assertEqual(result,
+                         expected_result,
+                         "%s != %s"
+                         % (result,
+                            expected_result))
+
+    def test_parse_semver_tag_noncompliant(self):
+        """
+        Parse a non-compliant tag
+        """
+        tag = "v1.2.3ijidsja"
+        result = shaker.libs.github.parse_semver_tag(tag)
+        expected_result = {
+            "major": 1,
+            "minor": 2,
+            "patch": 3,
+            "postfix": 'ijidsja'
         }
         self.assertEqual(result,
                          expected_result,
@@ -507,11 +525,19 @@ class TestGithub(unittest.TestCase):
         actual_result = shaker.libs.github.is_tag_release(tag)
         self.assertFalse(actual_result, "%s should not be a release" % tag)
 
+    def test_is_tag_release_noncompliant_prerelease(self):
+        """
+        Test is not a valid release, its a prerelease
+        """
+        tag = "v1.2.3prereleases1"
+        actual_result = shaker.libs.github.is_tag_release(tag)
+        self.assertFalse(actual_result, "%s should not be a release" % tag)
+
     def test_is_tag_release_notcompliant(self):
         """
         Test is not a valid release, is not compiant
         """
-        tag = "v1.2.3ijidsja"
+        tag = "v1.2.ijidsja"
         actual_result = shaker.libs.github.is_tag_release(tag)
         self.assertFalse(actual_result, "%s should not be a release" % tag)
 
@@ -521,23 +547,26 @@ class TestGithub(unittest.TestCase):
         """
         tag = "v1.2.3"
         actual_result = shaker.libs.github.is_tag_prerelease(tag)
-        self.assertFalse(actual_result, "%s should be a prerelease" % tag)
+        self.assertFalse(actual_result, "%s should be a release, not a prerelease" % tag)
 
     def test_is_tag_prerelease_prerelease(self):
         """
         Test is a valid prerelease
         """
-        tag = "v1.2.3-prereleases"
+        tag = "v1.2.3-prereleases1"
         actual_result = shaker.libs.github.is_tag_prerelease(tag)
         self.assertTrue(actual_result, "%s should not be a prerelease" % tag)
 
-    def test_is_tag_prerelease_notcompliant(self):
+    def test_is_tag_prerelease_noncompliant(self):
         """
-        Test is not a valid prerelease, is not compiant
+        Test is a valid prerelease with noncompliant tags
         """
-        tag = "v1.2.3ijidsja"
+        tag = "v1.2.3a"
         actual_result = shaker.libs.github.is_tag_prerelease(tag)
-        self.assertFalse(actual_result, "%s should not be a prerelease" % tag)
+        self.assertTrue(actual_result, "%s should be an alpha prerelease" % tag)
+        tag = "v1.2.3asdad"
+        actual_result = shaker.libs.github.is_tag_prerelease(tag)
+        self.assertTrue(actual_result, "%s should be an alpha prerelease" % tag)
 
     @responses.activate
     def test_resolve_constraint_to_object_branch_equality_resolvable(self):
@@ -578,8 +607,8 @@ class TestGithub(unittest.TestCase):
         # setup a mock response - branch not found
         mock_resp = [
             {
-              "message": "Branch not found",
-              "documentation_url": "https://developer.github.com/v3/repos/#get-branch"
+                "message": "Branch not found",
+                "documentation_url": "https://developer.github.com/v3/repos/#get-branch"
             }
         ]
 
