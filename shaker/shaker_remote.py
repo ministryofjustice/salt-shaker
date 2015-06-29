@@ -5,6 +5,7 @@ import shutil
 import shaker.libs.github
 import shaker.libs.logger
 from shaker.libs.errors import ConstraintResolutionException
+import re
 
 
 class ShakerRemote:
@@ -208,22 +209,56 @@ class ShakerRemote:
                                               "Updating '%s"
                                               % (dependency_info))
             name = dependency_info.get('name', None)
-            target = os.path.join(self._working_directory,
-                                  self._salt_root,
-                                  name)
-            source = os.path.join(self._working_directory,
-                                  self._install_directory,
-                                  name)
-            if os.path.exists(target):
-                msg = ("ShakerRemote::_update_root_links: "
-                       "Target '%s' conflicts with something else"
-                       % (name, target))
-                raise IOError(msg)
+            # Collect together a list of source directory paths to use for
+            # our formula discovery an linking strategy
+            subdir_candidates = [
+                {
+                    "source": os.path.join(self._working_directory,
+                                           self._install_directory,
+                                           name,
+                                           re.sub('-formula$', '', name)
+                                           ),
+                    "target": os.path.join(self._working_directory,
+                                           self._salt_root,
+                                           re.sub('-formula$', '', name)
+                                           )
+                },
+                {
+                    "source": os.path.join(self._working_directory,
+                                           self._install_directory,
+                                           name),
+                    "target": os.path.join(self._working_directory,
+                                           self._salt_root,
+                                           name)
+                },
+            ]
+            subdir_found = False
+            for subdir_candidate in subdir_candidates:
+                source = subdir_candidate["source"]
+                target = subdir_candidate["target"]
+                if os.path.exists(source):
+                    if not os.path.exists(target):
+                        subdir_found = True
+                        os.symlink(source, target)
+                        shaker.libs.logger.Logger().debug("ShakerRemote::_update_root_links: "
+                                                          " Linking %s to %s"
+                                                          % (source, target))
+                    else:
+                        msg = ("ShakerRemote::_update_root_links: "
+                               "Target '%s' conflicts with something else"
+                               % (target))
+                        raise IOError(msg)
 
-            if os.path.exists(source):
-                relative_source = os.path.relpath(source, os.path.dirname(target))
-                os.symlink(relative_source, target)
-                self._link_dynamic_modules(name)
+                    break
+
+        # If we haven't linked a root yet issue an exception
+        if not subdir_found:
+            msg = ("ShakerRemote::_update_root_links: "
+                   "Could not find target link for formula '%s'"
+                   % (name))
+            raise IOError(msg)
+        else:
+            self._link_dynamic_modules(name)
 
     def _link_dynamic_modules(self, dependency_name):
         shaker.libs.logger.Logger().debug("ShakerRemote::_link_dynamic_modules(%s) "
