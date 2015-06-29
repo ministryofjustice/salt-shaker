@@ -1,33 +1,49 @@
 import argparse
 import sys
-import logging
 
 import salt_shaker
-
-
-logging.basicConfig()
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 
 
 class ShakerCommandLine(object):
 
     def run(self, cli_args):
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(add_help=True)
         subparsers = parser.add_subparsers()
 
-        common_args = argparse.ArgumentParser(add_help=False)
-        common_args.add_argument('--root_dir', default='.', help="Working path to operate under")
-        common_args.add_argument('--root_constraint', default=argparse.SUPPRESS)
-        common_args.add_argument('--root_formula', default=argparse.SUPPRESS)
+        parser.add_argument('--root_dir',
+                            default='.',
+                            help="Working path to operate under")
+        parser.add_argument('--verbose',
+                            action='store_true',
+                            help="Enable verbose logging")
+        parser.add_argument('--debug',
+                            action='store_true',
+                            help="Enable debug logging")
+        parser.add_argument('--simulate',
+                            '-s',
+                            action='store_true',
+                            help="Only simulate the command, do not commit any changes")
+        parser.add_argument('--enable-remote-check',
+                            action='store_true',
+                            help="Enable remote checks when installing pinned versions")
 
-        parser_shake = subparsers.add_parser('shake', help="Install formulas and requirements", parents=[common_args])
-        parser_shake.set_defaults(force=False)
-        parser_shake.set_defaults(func=self.shake)
+        parser_install = subparsers.add_parser('install',
+                                               help=("Install formulas and requirements from metadata.yml, "
+                                                     "recursively resolving remote dependencies"),
+                                               )
+        parser_install.set_defaults(pinned=False)
+        parser_install.set_defaults(func=self.shake)
 
-        parser_update = subparsers.add_parser('update', help="?", parents=[common_args])
-        parser_update.set_defaults(force=True)
-        parser_update.set_defaults(func=self.shake)
+        parser_refresh = subparsers.add_parser('install-pinned-versions',
+                                               help=("Install pinned versions of formulas "
+                                                     "using formula-requirements.txt"))
+        parser_refresh.set_defaults(pinned=True)
+        parser_refresh.set_defaults(func=self.shake)
+
+        parser_check = subparsers.add_parser('check',
+                                             help=("Check versions of formulas against an update"))
+        parser_check.set_defaults(check_requirements=True)
+        parser_check.set_defaults(func=self.shake)
 
         args_ns = parser.parse_args(args=self.back_compat_args_fix(cli_args))
         # Convert the args as Namespace to dict a so we can pass it as kwargs to a function
@@ -46,9 +62,6 @@ class ShakerCommandLine(object):
 
     def shake(self, **kwargs):
         salt_shaker.shaker(**kwargs)
-
-    def do_update(self, argv):
-        self.shake(argv=argv, force=True)
 
 
 if __name__ == '__main__':
