@@ -239,7 +239,8 @@ class ShakerRemote:
                 if os.path.exists(source):
                     if not os.path.exists(target):
                         subdir_found = True
-                        os.symlink(source, target)
+                        relative_source = os.path.relpath(source, os.path.dirname(target))
+                        os.symlink(relative_source, target)
                         shaker.libs.logger.Logger().debug("ShakerRemote::_update_root_links: "
                                                           " Linking %s to %s"
                                                           % (source, target))
