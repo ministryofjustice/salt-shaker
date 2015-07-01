@@ -804,7 +804,13 @@ def install_source(target_source,
         # Look for tag, if not then look for branch
         try:
             parsed_tag = target_repository.revparse_single(target_tag)
-            target_sha = parsed_tag.hex
+
+            # If parsed tag refs a tag object, look for the actual commit object
+            if parsed_tag.type == pygit2.GIT_OBJ_TAG:
+                target_sha = parsed_tag.peel(pygit2.GIT_OBJ_COMMIT).hex
+            else:
+                target_sha = parsed_tag.hex
+
             shaker.libs.logger.Logger().debug("github::install_source: Found tag sha '%s' for tag '%s'"
                                               % (target_sha, target_tag))
         except KeyError:
