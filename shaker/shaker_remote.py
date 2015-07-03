@@ -252,14 +252,14 @@ class ShakerRemote:
 
                     break
 
-        # If we haven't linked a root yet issue an exception
-        if not subdir_found:
-            msg = ("ShakerRemote::_update_root_links: "
-                   "Could not find target link for formula '%s'"
-                   % (name))
-            raise IOError(msg)
-        else:
-            self._link_dynamic_modules(name)
+            # If we haven't linked a root yet issue an exception
+            if not subdir_found:
+                msg = ("ShakerRemote::_update_root_links: "
+                       "Could not find target link for formula '%s'"
+                       % (name))
+                raise IOError(msg)
+            else:
+                self._link_dynamic_modules(name)
 
     def _link_dynamic_modules(self, dependency_name):
         shaker.libs.logger.Logger().debug("ShakerRemote::_link_dynamic_modules(%s) "

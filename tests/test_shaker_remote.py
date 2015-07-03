@@ -162,9 +162,9 @@ class TestShakerRemote(TestCase):
             False
         ]
         testobj._update_root_links()
-        source = "vendor/formula-repos/test1-formula/test1"
+        relative_source = "../formula-repos/test1-formula/test1"
         target = "vendor/_root/test1"
-        mock_symlink.assert_called_once_with(source, target)
+        mock_symlink.assert_called_once_with(relative_source, target)
         mock_link_dynamic_modules.assert_called_once_with("test1-formula")
 
     @patch('shaker.shaker_remote.ShakerRemote._link_dynamic_modules')
@@ -197,9 +197,9 @@ class TestShakerRemote(TestCase):
             False
         ]
         testobj._update_root_links()
-        source = "vendor/formula-repos/test1"
+        relative_source = "../formula-repos/test1"
         target = "vendor/_root/test1"
-        mock_symlink.assert_called_once_with(source, target)
+        mock_symlink.assert_called_once_with(relative_source, target)
         mock_link_dynamic_modules.assert_called_once_with("test1")
 
     @raises(IOError)
