@@ -6,6 +6,7 @@ import shaker.libs.github
 import shaker.libs.logger
 from shaker.libs.errors import ConstraintResolutionException
 import re
+import yaml
 
 
 class ShakerRemote:
@@ -89,7 +90,7 @@ class ShakerRemote:
                     dependency["tag"] = dependency_tag
                     use_tag = True
                 else:
-                    msg = ("ShakerRemote::instalL_dependencies: "
+                    msg = ("ShakerRemote::install_dependencies: "
                            "No tag found when remote checks disabled")
                     raise ConstraintResolutionException(msg)
             else:
@@ -203,63 +204,99 @@ class ShakerRemote:
 
         return False
 
+    def _get_formula_namespaces(self, dependency_info):
+        """
+        based on metadata.yml generates a list of namespaces
+        if file is unreadable or namespaces are not supplied defaults to `re.sub('-formula$', '', name)`
+
+        example metadata.yaml for formula foobar-formula
+        ```
+        namespaces:
+        - foo
+        - bar
+        ```
+
+        Returns:
+            a list of directories from formula to link (namespaces supplied by formula)
+        """
+        name = dependency_info.get('name', None)
+        namespaces_default = [re.sub('-formula$', '', name)]
+        metadata_path = os.path.join(self._working_directory,
+                                     self._install_directory,
+                                     name, 'metadata.yml')
+        try:
+            with open(metadata_path, 'r') as metadata_file:
+                metadata = yaml.load(metadata_file)
+                shaker.libs.logger.Logger().debug("ShakerRemote::_get_formula_namespaces: metadata {}".format(metadata))
+                namespaces = metadata.get("namespaces", namespaces_default)
+        except IOError:
+            shaker.libs.logger.Logger().debug("ShakerRemote::_get_formula_namespaces: skipping unreadable {}".format(
+                metadata_path
+            ))
+            namespaces = namespaces_default
+        shaker.libs.logger.Logger().debug("ShakerRemote::_get_formula_namespaces: namespaces {}".format(namespaces))
+        return namespaces
+
     def _update_root_links(self):
         for dependency_info in self._dependencies.values():
             shaker.libs.logger.Logger().debug("ShakerRemote::_update_root_links: "
                                               "Updating '%s"
                                               % (dependency_info))
             name = dependency_info.get('name', None)
-            # Collect together a list of source directory paths to use for
-            # our formula discovery an linking strategy
-            subdir_candidates = [
-                {
-                    "source": os.path.join(self._working_directory,
-                                           self._install_directory,
-                                           name,
-                                           re.sub('-formula$', '', name)
-                                           ),
-                    "target": os.path.join(self._working_directory,
-                                           self._salt_root,
-                                           re.sub('-formula$', '', name)
-                                           )
-                },
-                {
-                    "source": os.path.join(self._working_directory,
-                                           self._install_directory,
-                                           name),
-                    "target": os.path.join(self._working_directory,
-                                           self._salt_root,
-                                           name)
-                },
-            ]
-            subdir_found = False
-            for subdir_candidate in subdir_candidates:
-                source = subdir_candidate["source"]
-                target = subdir_candidate["target"]
-                if os.path.exists(source):
-                    if not os.path.exists(target):
-                        subdir_found = True
-                        relative_source = os.path.relpath(source, os.path.dirname(target))
-                        os.symlink(relative_source, target)
-                        shaker.libs.logger.Logger().debug("ShakerRemote::_update_root_links: "
-                                                          " Linking %s to %s"
-                                                          % (source, target))
-                    else:
-                        msg = ("ShakerRemote::_update_root_links: "
-                               "Target '%s' conflicts with something else"
-                               % (target))
-                        raise IOError(msg)
+            namespaces = self._get_formula_namespaces(dependency_info)
+            # Let's link each namespace from this formula
+            for namespace in namespaces:
+                # Collect together a list of source directory paths to use for
+                # our formula discovery an linking strategy
+                subdir_candidates = [
+                    {
+                        "source": os.path.join(self._working_directory,
+                                               self._install_directory,
+                                               name,
+                                               namespace
+                                               ),
+                        "target": os.path.join(self._working_directory,
+                                               self._salt_root,
+                                               namespace
+                                               )
+                    },
+                    {
+                        "source": os.path.join(self._working_directory,
+                                               self._install_directory,
+                                               name),
+                        "target": os.path.join(self._working_directory,
+                                               self._salt_root,
+                                               name)
+                    },
+                ]
+                subdir_found = False
+                for subdir_candidate in subdir_candidates:
+                    source = subdir_candidate["source"]
+                    target = subdir_candidate["target"]
+                    if os.path.exists(source):
+                        if not os.path.exists(target):
+                            subdir_found = True
+                            relative_source = os.path.relpath(source, os.path.dirname(target))
+                            os.symlink(relative_source, target)
+                            shaker.libs.logger.Logger().info("ShakerRemote::_update_root_links: "
+                                                              "Linking %s to %s"
+                                                              % (source, target))
+                        else:
+                            msg = ("ShakerRemote::_update_root_links: "
+                                   "Target '%s' conflicts with something else"
+                                   % (target))
+                            raise IOError(msg)
 
-                    break
+                        break
 
-            # If we haven't linked a root yet issue an exception
-            if not subdir_found:
-                msg = ("ShakerRemote::_update_root_links: "
-                       "Could not find target link for formula '%s'"
-                       % (name))
-                raise IOError(msg)
-            else:
-                self._link_dynamic_modules(name)
+                # If we haven't linked a root yet issue an exception
+                if not subdir_found:
+                    msg = ("ShakerRemote::_update_root_links: "
+                           "Could not find target link for formula '%s'"
+                           % (name))
+                    raise IOError(msg)
+                else:
+                    self._link_dynamic_modules(name)
 
     def _link_dynamic_modules(self, dependency_name):
         shaker.libs.logger.Logger().debug("ShakerRemote::_link_dynamic_modules(%s) "

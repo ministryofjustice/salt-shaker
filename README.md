@@ -17,10 +17,10 @@ Salt shakers requires an initial config file containing the metadata for the loc
 formula: my_organisation/local-formula
 
 dependencies:
-  - some_organisation/test1-formula
-  - another_organisation/testa-formula>=v1.0.0
-  - another_organisation/testb-formula<=v4.0.0
-  - another_organisation/testc-formula==v2.0.0
+- some_organisation/test1-formula
+- another_organisation/testa-formula>=v1.0.0
+- another_organisation/testb-formula<=v4.0.0
+- another_organisation/testc-formula==v2.0.0
 ```
 
 To generate and download a list of formula requirements, simply run
@@ -50,11 +50,14 @@ Salt shakers requires an initial config file containing the metadata for the loc
 ```
 formula: my_organisation/local-formula
 
+namespaces:
+- local
+
 dependencies:
-  - some_organisation/test1-formula
-  - another_organisation/testa-formula>=v1.0.0
-  - another_organisation/testb-formula<=v4.0.0
-  - another_organisation/testc-formula==v2.0.0
+- some_organisation/test1-formula
+- another_organisation/testa-formula>=v1.0.0
+- another_organisation/testb-formula<=v4.0.0
+- another_organisation/testc-formula==v2.0.0
 ```
 
 Here, the name of the formula is set to be 'local-formula', with an organisation name of 'my_organisation'.
