@@ -50,7 +50,7 @@ Salt shakers requires an initial config file containing the metadata for the loc
 ```
 formula: my_organisation/local-formula
 
-namespaces:
+exports:
 - local
 
 dependencies:
@@ -64,6 +64,43 @@ Here, the name of the formula is set to be 'local-formula', with an organisation
 This formula will have dependencies on the described formula, based on the format 
 
     <organisation>/<formula-name>(constraint)
+
+
+### exports
+By default formula `organisation/name-formula` will be exposed to salt minions as `name`. So you can later refer to it 
+in your sls files using:
+```
+include:
+- name
+```
+
+In some cases you might want to overwrite the default export name or even expose multiple exports. In such case add to 
+metadata.yml:
+```
+exports:
+- name1
+- name2
+```
+
+Make sure you have both subdirectories available in formula:
+```
+\
++ name1/
+| + init.sls
+|
++ name2/
+| + init.sls
+|
++ metadata.yml
+```
+
+And from now on your formula will supply both exports and you can refer to them with:
+```
+include:
+- name1
+- name2
+```
+
 
 ### Constraint Resolution
 The constraint is optional and can take the form ==, >= or <= followed by a version tag. Salt shaker will use these constraints and the constraints

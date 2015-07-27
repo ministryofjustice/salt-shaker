@@ -204,48 +204,48 @@ class ShakerRemote:
 
         return False
 
-    def _get_formula_namespaces(self, dependency_info):
+    def _get_formula_exports(self, dependency_info):
         """
-        based on metadata.yml generates a list of namespaces
-        if file is unreadable or namespaces are not supplied defaults to `re.sub('-formula$', '', name)`
+        based on metadata.yml generates a list of exports
+        if file is unreadable or exports are not supplied defaults to `re.sub('-formula$', '', name)`
 
         example metadata.yaml for formula foobar-formula
         ```
-        namespaces:
+        exports:
         - foo
         - bar
         ```
 
         Returns:
-            a list of directories from formula to link (namespaces supplied by formula)
+            a list of directories from formula to link (exports supplied by formula)
         """
         name = dependency_info.get('name', None)
-        namespaces_default = [re.sub('-formula$', '', name)]
+        exports_default = [re.sub('-formula$', '', name)]
         metadata_path = os.path.join(self._working_directory,
                                      self._install_directory,
                                      name, 'metadata.yml')
         try:
             with open(metadata_path, 'r') as metadata_file:
                 metadata = yaml.load(metadata_file)
-                shaker.libs.logger.Logger().debug("ShakerRemote::_get_formula_namespaces: metadata {}".format(metadata))
-                namespaces = metadata.get("namespaces", namespaces_default)
+                shaker.libs.logger.Logger().debug("ShakerRemote::_get_formula_exports: metadata {}".format(metadata))
+                exports = metadata.get("exports", exports_default)
         except IOError:
-            shaker.libs.logger.Logger().debug("ShakerRemote::_get_formula_namespaces: skipping unreadable {}".format(
+            shaker.libs.logger.Logger().debug("ShakerRemote::_get_formula_exports: skipping unreadable {}".format(
                 metadata_path
             ))
-            namespaces = namespaces_default
-        shaker.libs.logger.Logger().debug("ShakerRemote::_get_formula_namespaces: namespaces {}".format(namespaces))
-        return namespaces
+            exports = exports_default
+        shaker.libs.logger.Logger().debug("ShakerRemote::_get_formula_exports: exports {}".format(exports))
+        return exports
 
     def _update_root_links(self):
         for dependency_info in self._dependencies.values():
-            shaker.libs.logger.Logger().debug("ShakerRemote::_update_root_links: "
+            shaker.libs.logger.Logger().debug("ShakerRemote::update_root_links: "
                                               "Updating '%s"
                                               % (dependency_info))
             name = dependency_info.get('name', None)
-            namespaces = self._get_formula_namespaces(dependency_info)
-            # Let's link each namespace from this formula
-            for namespace in namespaces:
+            exports = self._get_formula_exports(dependency_info)
+            # Let's link each export from this formula
+            for export in exports:
                 # Collect together a list of source directory paths to use for
                 # our formula discovery an linking strategy
                 subdir_candidates = [
@@ -253,11 +253,11 @@ class ShakerRemote:
                         "source": os.path.join(self._working_directory,
                                                self._install_directory,
                                                name,
-                                               namespace
+                                               export
                                                ),
                         "target": os.path.join(self._working_directory,
                                                self._salt_root,
-                                               namespace
+                                               export
                                                )
                     },
                     {
@@ -278,11 +278,11 @@ class ShakerRemote:
                             subdir_found = True
                             relative_source = os.path.relpath(source, os.path.dirname(target))
                             os.symlink(relative_source, target)
-                            shaker.libs.logger.Logger().info("ShakerRemote::_update_root_links: "
+                            shaker.libs.logger.Logger().info("ShakerRemote::update_root_links: "
                                                               "Linking %s to %s"
                                                               % (source, target))
                         else:
-                            msg = ("ShakerRemote::_update_root_links: "
+                            msg = ("ShakerRemote::update_root_links: "
                                    "Target '%s' conflicts with something else"
                                    % (target))
                             raise IOError(msg)
@@ -291,7 +291,7 @@ class ShakerRemote:
 
                 # If we haven't linked a root yet issue an exception
                 if not subdir_found:
-                    msg = ("ShakerRemote::_update_root_links: "
+                    msg = ("ShakerRemote::update_root_links: "
                            "Could not find target link for formula '%s'"
                            % (name))
                     raise IOError(msg)
