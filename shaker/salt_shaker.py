@@ -1,9 +1,11 @@
 import logging
 import os
+import sys
 import warnings
 
 from shaker.libs import logger
 from shaker.libs import metadata
+from shaker.libs import pygit2_utils
 from shaker_metadata import ShakerMetadata
 from shaker_remote import ShakerRemote
 from shaker.libs.errors import ShakerRequirementsUpdateException
@@ -63,6 +65,8 @@ class Shaker(object):
             clone_path(string): The directory to put formula into
             salt_root(string): The directory to link formula into
         """
+        # Run sanity checks on pygit2
+        pygit2_utils.pygit2_check()
 
         self.roots_dir = os.path.join(root_dir, salt_root_path, salt_root)
         self.repos_dir = os.path.join(root_dir, salt_root_path, clone_path)
@@ -272,6 +276,7 @@ def shaker(root_dir='.',
                                              enable_remote_check=enable_remote_check)
     else:
         shaker_instance.update_requirements(simulate=simulate)
+
 
 def get_deps(root_dir, root_formula=None, constraint=None, force=False):
     """

@@ -11,6 +11,8 @@ import metadata
 from errors import ConstraintResolutionException
 from errors import GithubRepositoryConnectionException
 import shaker.libs.logger
+from shaker.libs.pygit2_utils import pygit2_parse_error
+
 
 const_re = re.compile('([=><]+)\s*(.*)')
 tag_re = re.compile('v[0-9]+\.[0-9]+\.[0-9]+')
@@ -729,7 +731,10 @@ def open_repository(url,
     git_url = urlparse.urlparse(url)
     username = git_url.netloc.split('@')[0]\
         if '@' in git_url.netloc else 'git'
-    credentials = pygit2.credentials.KeypairFromAgent(username)
+    try:
+        credentials = pygit2.credentials.KeypairFromAgent(username)
+    except AttributeError as e:
+        pygit2_parse_error(e)
 
     # If local directory exists, then make a connection to it
     # Otherwise, clone the remote repo into the new directory
