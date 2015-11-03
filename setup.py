@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='salt-shaker',
-    version='0.1.2',
+    version='1.0.1',
     packages=['shaker',
               'shaker.libs'],
     url='http://github.com/ministryofjustice/salt_shaker',
