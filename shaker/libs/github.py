@@ -745,9 +745,26 @@ def open_repository(url,
                                           % (url, target_directory))
         repo = pygit2.Repository(target_directory)
     else:
-        repo = pygit2.clone_repository(url,
-                                       target_directory,
-                                       credentials=credentials)
+        # Try to use pygit2 0.22 cloning
+        try:
+            shaker.libs.logger.Logger().debug("open_repository: "
+                                              "Trying to open repository "
+                                              "using pygit2 0.22 format")
+            repo = pygit2.clone_repository(url,
+                                           target_directory,
+                                           credentials=credentials)
+        except TypeError as e:
+            shaker.libs.logger.Logger().debug("open_repository: "
+                                              "Failed to detect pygit2 0.22")
+            shaker.libs.logger.Logger().debug("open_repository: "
+                                              "Trying to open repository "
+                                              "using pygit2 0.23 format")
+            # Try to use pygit2 0.23 cloning
+            callbacks = pygit2.RemoteCallbacks(credentials)
+            repo = pygit2.clone_repository(url,
+                                           target_directory,
+                                           callbacks=callbacks)
+
         shaker.libs.logger.Logger().debug(":open_repository: "
                                           "Cloning url '%s' into local repository '%s'"
                                           % (url, target_directory))
