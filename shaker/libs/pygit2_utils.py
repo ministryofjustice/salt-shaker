@@ -63,7 +63,7 @@ def pygit2_check():
         Pygit2KepairFromAgentUnsupportedError: On credential support check failed
     """
     if not pygit2_check_ssh():
-        raise Pygit2SSHUnsupportedError(error_message_credentials_support)
+        raise Pygit2SSHUnsupportedError(error_message_ssh_support)
     elif not pygit2_check_credentials():
         raise Pygit2KepairFromAgentUnsupportedError(error_message_credentials_support)
 
