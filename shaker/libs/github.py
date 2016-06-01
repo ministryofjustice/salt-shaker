@@ -716,7 +716,8 @@ def validate_github_access(response, url=None):
 
 
 def open_repository(url,
-                    target_directory):
+                    target_directory,
+                    github_token=None):
     """
     Make a connection from a remote git repository into a local
     directory.
@@ -732,7 +733,14 @@ def open_repository(url,
     username = git_url.netloc.split('@')[0]\
         if '@' in git_url.netloc else 'git'
     try:
-        credentials = pygit2.credentials.KeypairFromAgent(username)
+        # Use the github token for auth if we have one
+        if github_token is not None:
+            shaker.libs.logger.Logger().debug("open_repository: Found github token, using it for auth")
+            credentials = pygit2.UserPass(github_token, 'x-oauth-basic')
+            parsed_url = parse_github_url(url)
+            url = "https://github.com/%s/%s.git" % (parsed_url['organisation'], parsed_url['name'])
+        else:
+            credentials = pygit2.credentials.KeypairFromAgent(username)
     except AttributeError as e:
         pygit2_parse_error(e)
 
@@ -807,6 +815,7 @@ def install_source(target_source,
     target_url = target_source.get('source', None)
     target_sha = target_source.get('sha', None)
     target_tag = target_source.get('tag', None)
+    github_token = get_valid_github_token()
 
     target_path = os.path.join(target_directory,
                                target_name)
@@ -817,7 +826,7 @@ def install_source(target_source,
                                          target_url,
                                          target_sha,
                                          target_tag))
-    target_repository = open_repository(target_url, target_path)
+    target_repository = open_repository(target_url, target_path, github_token)
 
     if use_tag:
         if target_tag is None:
