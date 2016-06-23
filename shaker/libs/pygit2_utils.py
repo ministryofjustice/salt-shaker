@@ -1,4 +1,5 @@
 import shaker.libs.logger
+import paramiko
 import pygit2
 
 
@@ -8,6 +9,11 @@ class Pygit2SSHUnsupportedError(Exception):
 
 class Pygit2KepairFromAgentUnsupportedError(Exception):
     pass
+
+
+class Pygit2SSHAgentMissingKeysError(Exception):
+    pass
+
 
 link_installation = "http://www.pygit2.org/install.html"
 error_message_ssh_support = ("shaker.libs.util:check_pygit2: No SSH support found in libgit2. "
@@ -19,6 +25,11 @@ error_message_credentials_support = ("shaker.libs.util:check_pygit2: Module 'Key
                                      "not found in pygit2.features. "
                                      "Please check your pygit installation (%s)."
                                      % (link_installation))
+
+error_message_ssh_missing_keys = ("shaker.libs.util:check_pygit2: The ssh agent doesnt appear to know "
+                                  " your github key. "
+                                  "Make sure you've added your key with 'ssh-add ~/.id_rsa' or similar. "
+                                  " A list of the keys the agent know about can be seen with 'ssh-add -L'.")
 
 
 def pygit2_parse_error(e):
@@ -37,8 +48,7 @@ def pygit2_parse_error(e):
     elif (isinstance(e, AttributeError) and e.message == "'module' object has no attribute 'KeypairFromAgent'"):
         raise Pygit2KepairFromAgentUnsupportedError(error_message_credentials_support)
     else:
-        # Re-throw the error with the original trace reserved.
-        raise
+        raise Pygit2SSHAgentMissingKeysError(error_message_ssh_missing_keys)
 
 
 def pygit2_info():
@@ -66,6 +76,8 @@ def pygit2_check():
         raise Pygit2SSHUnsupportedError(error_message_ssh_support)
     elif not pygit2_check_credentials():
         raise Pygit2KepairFromAgentUnsupportedError(error_message_credentials_support)
+    elif not pygit2_agent_has_keys():
+        raise Pygit2SSHAgentMissingKeysError(error_message_ssh_missing_keys)
 
 
 def pygit2_check_ssh():
@@ -99,4 +111,23 @@ def pygit2_check_credentials():
 
     message_ok = ("shaker.libs.util:pygit2_check_credentials: No credential problems found. ")
     shaker.libs.logger.Logger().debug(message_ok)
+    return True
+
+
+def pygit2_agent_has_keys():
+    """
+    Check for common pygit2 ssh agent problems
+
+    Return:
+        bool: True if no problems found, False otherwise
+    """
+    agent = paramiko.Agent()
+    keys = agent.get_keys()
+    if len(keys) < 1:
+        return False
+    shaker.libs.logger.Logger().debug("shaker.libs.util:check_pygit2: "
+                                      "Please check that the keys listed contain your github key...")
+    for key in keys:
+        shaker.libs.logger.Logger().debug("shaker.libs.util:check_pygit2: "
+                                          "Found ssh agent key: %s" % key.get_base64())
     return True
