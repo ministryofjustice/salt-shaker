@@ -6,7 +6,7 @@ import sys
 import pygit2
 from parse import parse
 import urlparse
-
+from distutils.version import LooseVersion
 import metadata
 from errors import ConstraintResolutionException
 from errors import GithubRepositoryConnectionException
@@ -333,7 +333,7 @@ def get_latest_tag(tag_versions,
     shaker.libs.logger.Logger().debug("github::get_latest_tag: "
                                       "Latest from %s"
                                       % (tag_versions))
-    tag_versions.sort()
+    tag_versions.sort(key=LooseVersion)
     for tag_version in reversed(tag_versions):
         is_release = is_tag_release("v%s" % tag_version)
         is_prerelease = is_tag_prerelease("v%s" % tag_version)
