@@ -776,6 +776,18 @@ def open_repository(url,
 
     return repo
 
+def github_peel(obj):
+    '''
+    Compatibility function for pygit2.Reference objects. Older versions of
+    pygit2 use .get_object() to return the object to which the reference
+    points, while newer versions use .peel(). In pygit2 0.27.4,
+    .get_object() was removed. This function will try .peel() first and
+    fall back to .get_object().
+    '''
+    try:
+        return obj.peel()
+    except AttributeError:
+        return obj.get_object()
 
 def install_source(target_source,
                    target_directory,
@@ -883,7 +895,7 @@ def install_source(target_source,
     # Pygit2 internally resets the head of the filesystem to the OID we set.
     target_repository.set_head(target_oid)
 
-    if target_repository.head.get_object().hex != target_sha:
+    if github_peel(target_repository.head).hex != target_sha:
         shaker.libs.logger.Logger().debug("Resetting sha mismatch on source '%s'"
                                           % (target_name))
         target_repository.reset(target_sha, pygit2.GIT_RESET_HARD)
